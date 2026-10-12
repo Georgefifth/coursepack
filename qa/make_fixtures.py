@@ -22,7 +22,7 @@ manifest = '''<manifest xmlns="http://www.imsglobal.org/xsd/imsccv1p1/imscp_v1p1
 files = {
     'imsmanifest.xml': manifest,
     'pages/intro.html': '<h2>Welcome to the evidence course</h2><p>Observe, record, and review.</p><img src="../resources/figure%20%E5%9B%BE.png" alt="Evidence figure"><a href="lesson.html#details">Continue to details</a><a href="../resources/worksheet.csv">Get worksheet</a><script>document.body.textContent="COMPROMISED"</script><p onclick="alert(1)">Safe retained text</p>',
-    'pages/lesson.html': '<h2 id="details">Details to verify</h2><p>Each finding needs a source.</p><a href="https://example.com/reading">External reading</a><img src="missing.png" alt="Missing example">',
+    'pages/lesson.html': '<h2 id="details">Details to verify</h2><p>Each finding needs a source.</p><a href="https://example.com/">External reading</a><img src="missing.png" alt="Missing example">',
     'resources/worksheet.csv': 'Task,Evidence\nHandover,Original observation\n',
     'resources/figure 图.png': png,
     'resources/unreferenced.txt': 'This undeclared file must not be exported.',
