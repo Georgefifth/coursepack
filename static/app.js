@@ -199,6 +199,7 @@ function drawOutline() {
   if (focus) { const target = Array.from(root.querySelectorAll('[data-focus]')).find(n => n.dataset.focus === focus); if (target) target.focus({ preventScroll: true }); }
 }
 function schedulePreview() {
+  $('saveArchiveLink').hidden = true;
   saveDraft();
   renderRevision++;
   $('previewStatus').textContent = '正在更新…';
@@ -300,12 +301,14 @@ $('exportButton').addEventListener('click', async () => {
   if (exportBusy) return;
   exportBusy = true;
   const button = $('exportButton'); button.disabled = true; button.textContent = '正在打包…';
+  const exportPayload = snapshot();
   try {
     if (!await refreshPreview()) throw new Error('请先等待预览更新成功再导出。');
     const anchor = el('a');
     let downloadURL;
-    if (CourseTransport.browserMode) { const response = await request('/api/export', snapshot()); downloadURL = URL.createObjectURL(await response.blob()); anchor.href = downloadURL; }
+    if (CourseTransport.browserMode) { const response = await request('/api/export', exportPayload); downloadURL = URL.createObjectURL(await response.blob()); anchor.href = downloadURL; }
     else anchor.href = archiveURL;
+    if (!course || JSON.stringify(snapshot()) !== JSON.stringify(exportPayload)) { if (downloadURL) URL.revokeObjectURL(downloadURL); throw new Error('打包期间目录已改变。请等待预览同步后重新下载。'); }
     anchor.download = 'CoursePack-archive.zip';
     document.body.append(anchor); anchor.click(); anchor.remove();
     if (downloadURL) { if (lastDownloadURL) URL.revokeObjectURL(lastDownloadURL); lastDownloadURL = downloadURL; $('saveArchiveLink').href = downloadURL; $('saveArchiveLink').hidden = false; }

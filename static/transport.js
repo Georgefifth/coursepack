@@ -50,6 +50,6 @@ window.CourseTransport = (() => {
     }
     return { json: async () => result.data };
   }
-  function clear() { if (worker) worker.terminate(); worker = null; for (const request of pending.values()) request.reject(new Error('课程已清除。')); pending.clear(); urls.forEach(URL.revokeObjectURL); urls.clear(); previousPreviewURLs = []; }
+  function clear() { if (worker) worker.terminate(); worker = null; for (const request of pending.values()) request.reject(new Error('课程已清除。')); pending.clear(); urls.forEach(URL.revokeObjectURL); urls.clear(); previousPreviewURLs = []; window.CourseTransport.previewAssets = []; }
   return { request, browserMode, clear, revokePrevious };
 })();

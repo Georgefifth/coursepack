@@ -69,6 +69,6 @@ self.onmessage = event => {
       const text = String(error.message || error);
       const known = text.match(/CourseError: ([^\n]+)/);
       self.postMessage({ id, error: known ? known[1] : '浏览器处理未完成。请重试；仍失败时可下载源码使用本机版。', detail: known ? undefined : text.slice(-800) });
-    } finally { self.input_bytes = null; self.input_payload = null; }
+    } finally { self.input_bytes = null; self.input_payload = null; if (runtime) { runtime.globals.set('input_bytes', null); runtime.globals.set('input_payload', null); } }
   });
 };
