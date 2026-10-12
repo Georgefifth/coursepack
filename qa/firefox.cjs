@@ -15,7 +15,18 @@ const fixtures=path.join(root,'qa-output','fixtures');
 const results=[];
 let browser;
 function check(condition,message){assert.ok(condition,message)}
-async function ready(p){await expect(p.locator('#workbench')).toBeVisible({timeout:90000});await expect(p.locator('#previewStatus')).toHaveText('Preview is up to date',{timeout:90000});await expect(p.locator('#importButton')).toBeEnabled({timeout:90000});await expect(p.frameLocator('#previewFrame').locator('article').first()).toBeVisible({timeout:15000});}
+async function reader(p,query,arg){return p.evaluate(({query,arg})=>{const doc=document.querySelector('#previewFrame').contentDocument;if(!doc)return null;const node=doc.querySelector(query);if(!node)return null;const rect=node.getBoundingClientRect();return {text:node.textContent,top:rect.top,width:rect.width,height:rect.height,visible:doc.defaultView.getComputedStyle(node).display!=='none'&&doc.defaultView.getComputedStyle(node).visibility!=='hidden'&&rect.width>0&&rect.height>0,loaded:node.tagName==='IMG'?node.complete&&node.naturalWidth>0:undefined,naturalWidth:node.naturalWidth};},{query,arg});}
+async function clickReaderLink(p,label){
+ await p.locator('#previewFrame').scrollIntoViewIfNeeded();
+ for(let attempt=0;attempt<8;attempt++){
+  const link=await p.evaluate(label=>{const f=document.querySelector('#previewFrame');const doc=f.contentDocument;const a=[...doc.querySelectorAll('a')].find(a=>a.textContent.trim()===label);if(!a)return null;const r=a.getBoundingClientRect(),outer=f.getBoundingClientRect();return {x:outer.left+r.left+r.width/2,y:outer.top+r.top+r.height/2,relative:r.top+r.height/2,frameHeight:outer.height,frameX:outer.left+outer.width/2,frameY:outer.top+outer.height/2};},label);
+  check(link,'Reader link missing: '+label);
+  if(link.relative>10&&link.relative<link.frameHeight-10){await p.mouse.click(link.x,link.y);return;}
+  await p.mouse.move(link.frameX,link.frameY);await p.mouse.wheel(0,link.relative-link.frameHeight/2);await p.waitForTimeout(150);
+ }
+ throw new Error('Could not scroll reader link into view: '+label);
+}
+async function ready(p){await expect(p.locator('#workbench')).toBeVisible({timeout:90000});await expect(p.locator('#previewStatus')).toHaveText('Preview is up to date',{timeout:90000});await expect(p.locator('#importButton')).toBeEnabled({timeout:90000});await expect.poll(async()=>{const n=await reader(p,'article');return !!n?.visible;},{timeout:15000}).toBe(true);}
 async function demo(p){await p.locator('#demoButton').click();await ready(p);console.log('Demo ready');}
 async function upload(p,name,replace=false){const chooser=p.waitForEvent('filechooser');await p.locator(replace?'#replaceButton':'#importButton').click();await (await chooser).setFiles(path.join(fixtures,name));}
 async function download(p,name,source){const event=p.waitForEvent('download',{timeout:30000});await p.getByRole('button',{name:'Download archive',exact:true}).click();const d=await event;assert.equal(await d.failure(),null);const file=path.join(output,name+'.zip');await d.saveAs(file);console.log('ZIP saved '+name);return JSON.parse(execFileSync('python3',[path.join(root,'qa','inspect_archive.py'),file,...(source ? [path.join(fixtures,source)] : [])],{encoding:'utf8',maxBuffer:20*1024*1024}));}
@@ -34,7 +45,8 @@ async function test(name,work,options={}){
    let timer;
    try { await Promise.race([work(p,context,requests),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error('Scenario exceeded 120 seconds')),120000);})]); } finally { clearTimeout(timer); }
    check(errors.length===0,'Console/page errors: '+JSON.stringify(errors));
-   check(failed.length===0,'Failed requests: '+JSON.stringify(failed));
+   const unexpectedFailures=failed.filter(r=>!(options.navigation && r.url.endsWith('/favicon.svg') && r.error==='NS_BINDING_ABORTED'));
+   check(unexpectedFailures.length===0,'Unexpected failed requests: '+JSON.stringify(unexpectedFailures));
    const unexpected=badResponses.filter(r=>!(options.negative && r.url.includes('/api/import') && r.status===400));
    check(unexpected.length===0,'Unexpected HTTP errors: '+JSON.stringify(unexpected));
  }catch(e){status='Fail';error=e.stack;await screenshot(p,'FAIL-'+name.replace(/[^a-z0-9]+/gi,'-')).catch(()=>{});}
@@ -56,13 +68,13 @@ async function test(name,work,options={}){
  });
  await test('Loading state blocks duplicate import and then completes',async(p,c)=>{
   const isStatic=await p.locator('html').getAttribute('data-engine')==='browser';
-  await c.route(isStatic?'**/engine.py':'**/api/demo',async route=>{await new Promise(resolve=>setTimeout(resolve,1500));await route.continue();});
+  if (!isStatic) await c.route('**/api/demo',async route=>{await new Promise(resolve=>setTimeout(resolve,1500));await route.continue();});
   await p.locator('#demoButton').click();await expect(p.locator('#demoButton')).toBeDisabled();await expect(p.locator('#importButton')).toHaveText('Reading…');await expect(p.locator('#clearButton')).toBeDisabled();await screenshot(p,'loading');
   await ready(p);await expect(p.locator('#demoButton')).toBeEnabled();await expect(p.locator('#selectionCount')).toHaveText('Selected 6 / 6 items');
  });
  await test('Demo: import, review, issue navigation, and complete ZIP',async(p,c,requests)=>{
   await demo(p);await expect(p.locator('#selectionCount')).toHaveText('Selected 6 / 6 items');await expect(p.locator('#issueCount')).toHaveText('2');
-  await expect(p.frameLocator('#previewFrame').getByRole('heading',{name:'Design Research Methods · Fall Course',exact:true})).toBeVisible();
+  assert.equal((await reader(p,'h1')).text,'Design Research Methods · Fall Course');check((await reader(p,'h1')).visible,'Preview heading not rendered');
   await p.getByRole('tab',{name:'Review 2'}).click();await expect(p.locator('.issue-row')).toHaveCount(2);await screenshot(p,'review');
   await p.locator('.issue-row').first().getByRole('button',{name:'View material'}).click();await expect(p.getByRole('tab',{name:'Preview',exact:true})).toHaveAttribute('aria-selected','true');
   const before=requests.filter(r=>r.url.includes('/api/render')).length;const archive=await download(p,'demo');
@@ -74,12 +86,12 @@ async function test(name,work,options={}){
  });
  await test('Uploaded package: original image, fragments, attachments, sanitization, and offline archive',async(p,c,requests)=>{
   await upload(p,'course.imscc');await ready(p);await expect(p.locator('#selectionCount')).toHaveText('Selected 4 / 4 items');
-  const frame=p.frameLocator('#previewFrame');const image=frame.getByRole('img',{name:'Evidence figure'});await expect(image).toBeVisible();check(await image.evaluate(n=>n.complete&&n.naturalWidth===80),'Actual image did not load');
-  await frame.getByRole('link',{name:'Continue to details',exact:true}).click();check(await frame.getByRole('heading',{name:'Details to verify'}).evaluate(n=>n.getBoundingClientRect().top>=-1&&n.getBoundingClientRect().top<200),'Fragment did not navigate to lesson');
-  const externalPage=c.waitForEvent('page');await frame.getByRole('link',{name:'External reading',exact:true}).click();const external=await externalPage;await expect(external).toHaveURL('https://example.com/');await expect(external.getByRole('heading',{name:'Example Domain',exact:true})).toBeVisible();await expect(p.locator('#selectionCount')).toHaveText('Selected 4 / 4 items');await external.close();
+  await expect.poll(async()=>{const image=await reader(p,'img[alt="Evidence figure"]');return image?.visible&&image?.loaded&&image?.naturalWidth===80;},{timeout:15000}).toBe(true);
+  await clickReaderLink(p,'Continue to details');const details=await reader(p,'#i2-src-details');check(details?.visible&&details.top>=-1&&details.top<200,'Fragment did not navigate to lesson');
+  const externalPage=c.waitForEvent('page');await clickReaderLink(p,'External reading');const external=await externalPage;await expect(external).toHaveURL('https://example.com/');await expect(external).toHaveTitle('Example Domain');await expect(external.getByText('This domain is for use in documentation examples without needing permission.',{exact:false})).toBeVisible({timeout:30000});await expect(p.locator('#selectionCount')).toHaveText('Selected 4 / 4 items');await external.close();
   const archive=await download(p,'uploaded','course.imscc');assert.equal(archive.report.included.length,4);check(archive.files.includes('assets/resources/figure 图.png'),'Unicode image not preserved');check(archive.files.includes('assets/quiz.xml'),'Undeclared-in-module quiz not preserved');check(!archive.files.some(n=>n.includes('unreferenced')),'Unreferenced file leaked');check(!archive.body.includes('<script')&&!archive.body.includes('onclick='),'Active imported HTML survived');
-  const reader=await c.newPage();await reader.goto(pathToFileURL(path.join(archive.extracted,'index.html')).href);await reader.getByRole('link',{name:'Read the complete body'}).click();await expect(reader.getByRole('heading',{name:'Welcome to the evidence course'})).toBeVisible();
-  check(await reader.getByRole('img',{name:'Evidence figure'}).evaluate(n=>n.complete&&n.naturalWidth===80),'Extracted image failed');await reader.getByRole('link',{name:'Continue to details'}).click();check(await reader.getByRole('heading',{name:'Details to verify'}).evaluate(n=>Math.abs(n.getBoundingClientRect().top)<200),'Offline fragment failed');
+  const offlineReader=await c.newPage();await offlineReader.goto(pathToFileURL(path.join(archive.extracted,'index.html')).href);await offlineReader.getByRole('link',{name:'Read the complete body'}).click();await expect(offlineReader.getByRole('heading',{name:'Welcome to the evidence course'})).toBeVisible();
+  check(await offlineReader.getByRole('img',{name:'Evidence figure'}).evaluate(n=>n.complete&&n.naturalWidth===80),'Extracted image failed');await offlineReader.getByRole('link',{name:'Continue to details'}).click();check(await offlineReader.getByRole('heading',{name:'Details to verify'}).evaluate(n=>Math.abs(n.getBoundingClientRect().top)<200),'Offline fragment failed');
   if(base.startsWith('https:'))check(!requests.some(r=>r.method==='POST'),'Uploaded input sent to a server');await screenshot(p,'uploaded');
  });
  await test('Selection, filtered module scope, no-results state, and batch selection',async p=>{
@@ -110,7 +122,7 @@ async function test(name,work,options={}){
   console.log('Refresh: reimport');await upload(p,'demo.imscc',true);await ready(p);console.log('Refresh: reimported');await expect(p.locator('#courseTitle')).toHaveValue('Recovered draft');
   console.log('Refresh: home');await p.getByRole('link',{name:'CoursePack home'}).click();await expect(p.locator('#welcome')).toBeVisible();console.log('Refresh: forward');await p.goto(base+'?qa=back');console.log('Refresh: back');await p.goBack({waitUntil:'domcontentloaded',timeout:15000});console.log('Refresh: returned');await expect(p.locator('#welcome')).toBeVisible();await demo(p);await expect(p.locator('#courseTitle')).toHaveValue('Recovered draft');
   await p.getByRole('button',{name:'Clear course',exact:true}).click();await expect(p.locator('#welcome')).toBeVisible();await expect(p.locator('#message')).toHaveText("Course files and this tab's arrangement draft were cleared.");await demo(p);await expect(p.locator('#courseTitle')).toHaveValue('Design Research Methods · Fall Course');await expect(p.locator('#selectionCount')).toHaveText('Selected 6 / 6 items');
- });
+ },{navigation:true});
  await test('Rename updates accessible control names',async p=>{
   await demo(p);const name=p.getByRole('textbox',{name:'Module name: Before you begin',exact:true});await name.fill('Accessible renamed module');await name.press('Enter');await expect(p.getByRole('textbox',{name:'Module name: Accessible renamed module',exact:true})).toHaveValue('Accessible renamed module');await expect(p.getByRole('checkbox',{name:'Select module: Accessible renamed module',exact:true})).toBeChecked();await p.getByRole('button',{name:'Move module down: Accessible renamed module',exact:true}).click();const a=await download(p,'accessible-renamed');check(a.report.included.some(i=>i.module==='Accessible renamed module'),'Renamed module absent from archive');
  });
@@ -118,7 +130,7 @@ async function test(name,work,options={}){
   await demo(p);await p.getByRole('textbox',{name:'Archive name',exact:true}).fill('   ');await p.getByRole('textbox',{name:'Archive name',exact:true}).press('Tab');await expect(p.locator('#courseTitle')).toHaveValue('Design Research Methods · Fall Course');await expect(p.locator('#message')).toContainText('Archive name cannot be empty');const name=p.getByRole('textbox',{name:'Module name: Before you begin',exact:true});await name.fill('');await name.press('Enter');await expect(p.locator('.module-title').first()).toHaveValue('Before you begin');const a=await download(p,'empty-name-recovery');assert.equal(a.report.title,'Design Research Methods · Fall Course');assert.equal(a.report.included[0].module,'Before you begin');
  });
  await test('Empty selection blocks exports and restores usable preview',async p=>{
-  await demo(p);await p.getByRole('button',{name:'Clear selection',exact:true}).click();await expect(p.locator('#exportButton')).toBeDisabled();await expect(p.locator('#printButton')).toBeDisabled();await expect(p.frameLocator('#previewFrame').getByText('No materials selected. Choose the content to deliver in the outline.')).toBeVisible();await screenshot(p,'empty');await p.getByRole('button',{name:'Select all',exact:true}).click();await ready(p);await download(p,'after-empty');
+  await demo(p);await p.getByRole('button',{name:'Clear selection',exact:true}).click();await expect(p.locator('#exportButton')).toBeDisabled();await expect(p.locator('#printButton')).toBeDisabled();await expect.poll(async()=>{const n=await reader(p,'.empty');return n?.visible&&n.text==='No materials selected. Choose the content to deliver in the outline.';}).toBe(true);await screenshot(p,'empty');await p.getByRole('button',{name:'Select all',exact:true}).click();await ready(p);await download(p,'after-empty');
  });
  for(const [file,feedback] of [['wrong.txt','Choose a Canvas .imscc or .zip course export.'],['oversize.imscc','This file exceeds 50 MB. Export a smaller course package.'],['corrupt.imscc','Could not read this archive. Choose a Canvas .imscc or .zip course export.'],['html-only.zip','Offline HTML packages are not supported.'],['empty.zip','No materials were found.'],['unsafe.zip','unsafe file path']]){
   await test('Invalid '+file+' keeps prior work and recovers',async p=>{
@@ -126,7 +138,7 @@ async function test(name,work,options={}){
   },{negative:true});
  }
  await test('Different-content reimport does not restore old arrangement',async p=>{
-  await upload(p,'course.imscc');await ready(p);await p.getByRole('textbox',{name:'Archive name',exact:true}).fill('Old draft');await p.getByRole('checkbox',{name:'Include: Introduction',exact:true}).uncheck();await upload(p,'changed.imscc',true);await ready(p);await expect(p.locator('#courseTitle')).toHaveValue('QA Evidence Course');await expect(p.locator('#selectionCount')).toHaveText('Selected 4 / 4 items');await expect(p.frameLocator('#previewFrame').getByText('Different course content')).toBeVisible();
+  await upload(p,'course.imscc');await ready(p);await p.getByRole('textbox',{name:'Archive name',exact:true}).fill('Old draft');await p.getByRole('checkbox',{name:'Include: Introduction',exact:true}).uncheck();await upload(p,'changed.imscc',true);await ready(p);await expect(p.locator('#courseTitle')).toHaveValue('QA Evidence Course');await expect(p.locator('#selectionCount')).toHaveText('Selected 4 / 4 items');await expect.poll(async()=>{const n=await reader(p,'#i1');return n?.visible&&n.text.includes('Different course content');}).toBe(true);
  });
  await test('Keyboard selection, ordering, tab navigation, and visible focus',async p=>{
   await demo(p);const checkbox=p.getByRole('checkbox',{name:'Include: Further reading',exact:true});await checkbox.focus();await p.keyboard.press('Space');await expect(p.locator('#selectionCount')).toHaveText('Selected 5 / 6 items');await expect(checkbox).not.toBeChecked();await expect(checkbox).toBeFocused();
@@ -134,7 +146,7 @@ async function test(name,work,options={}){
   await p.getByRole('tab',{name:'Preview',exact:true}).focus();await p.keyboard.press('ArrowRight');await expect(p.locator('#issuesTab')).toHaveAttribute('aria-selected','true');await expect(p.locator('#issuesTab')).toBeFocused();await p.keyboard.press('ArrowLeft');await expect(p.locator('#previewTab')).toBeFocused();check(await p.locator('#previewTab').evaluate(n=>getComputedStyle(n).outlineStyle!=='none'),'No visible keyboard focus');
  });
  await test('Viewport stays anchored after reading and excluding earlier content',async p=>{
-  await demo(p);await p.getByRole('button',{name:'Preview: Observation exercise',exact:true}).click();const frame=await p.locator('#previewFrame').contentFrame();const article=p.frameLocator('#previewFrame').locator('#i3');await p.mouse.move(1000,600);await p.mouse.wheel(0,180);await p.waitForTimeout(300);const before=await article.evaluate(n=>n.getBoundingClientRect().top);await p.getByRole('checkbox',{name:'Include: Course overview and learning goals',exact:true}).uncheck();await expect(p.locator('#previewStatus')).toHaveText('Preview is up to date');await p.waitForTimeout(300);const after=await article.evaluate(n=>n.getBoundingClientRect().top);check(Math.abs(before-after)<3,'Reading position moved '+(after-before)+'px');
+  await demo(p);await p.getByRole('button',{name:'Preview: Observation exercise',exact:true}).click();await p.mouse.move(1000,600);await p.mouse.wheel(0,180);await p.waitForTimeout(300);const before=(await reader(p,'#i3')).top;await p.getByRole('checkbox',{name:'Include: Course overview and learning goals',exact:true}).uncheck();await expect(p.locator('#previewStatus')).toHaveText('Preview is up to date');await p.waitForTimeout(300);const after=(await reader(p,'#i3')).top;check(Math.abs(before-after)<3,'Reading position moved '+(after-before)+'px');
  });
  await test('Print opens the arranged document and provides save guidance',async(p,c)=>{
   await demo(p);await p.getByRole('checkbox',{name:'Include: Further reading',exact:true}).uncheck();const popupPromise=p.waitForEvent('popup',{timeout:15000});await p.getByRole('button',{name:'Print / Save PDF',exact:true}).click();const popup=await popupPromise;await expect(popup.getByRole('heading',{name:'Design Research Methods · Fall Course',exact:true})).toBeVisible();await expect(popup.locator('article')).toHaveCount(5);await expect(p.locator('#message')).toContainText('Choose Save as PDF');await screenshot(popup,'print-document');await popup.close();await expect(p.locator('#printButton')).toBeEnabled();

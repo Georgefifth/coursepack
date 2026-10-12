@@ -23,4 +23,4 @@ node qa/firefox.cjs http://127.0.0.1:8765/ native
 
 Raw results, screenshots, downloads and extracted archives go to ignored `qa-output/`. Keep failed rounds; do not delete tests, weaken assertions or replace a failing feature with a DOM shortcut. Visual review requires opening the actual screenshots; viewport geometry checks are supplementary. These are scripted acceptance observations, not real-user satisfaction data.
 
-Loading-state tests delay one genuine engine/import response by a bounded 1.5 seconds, then continue it unchanged. They do not fabricate successful imports. Navigation uses DOM-ready waiting plus the same final business assertions; every scenario has a 120-second ceiling.
+The native loading-state test delays a genuine import response by a bounded 1.5 seconds, then continues it unchanged. The static loading-state test uses the actual cold worker startup without intercepting worker fetches; Firefox worker interception proved unreliable in the test harness. They do not fabricate successful imports. Navigation uses DOM-ready waiting plus the same final business assertions; every scenario has a 120-second ceiling.

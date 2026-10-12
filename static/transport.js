@@ -34,7 +34,11 @@ window.CourseTransport = (() => {
     if (path === '/api/export') return { blob: async () => new Blob([result.bytes], { type: 'application/zip' }) };
     if (result.assets) {
       let html = result.data.html.replace("img-src 'self'", "img-src 'self' blob:").replaceAll('href="body.html#', 'href="#').replaceAll('href="#', 'href="about:srcdoc#');
-      const nextURLs = [];
+      // A trusted blob icon prevents Firefox's about:blank print window from
+      // attempting a root favicon request rejected by its strict document CSP.
+      const icon = makeURL(new Blob(['<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><path fill="#315cba" d="M4 10h6v18H4zm9-5h6v22h-6zm9-3h6v21h-6z"/></svg>'], { type: 'image/svg+xml' }));
+      html = html.replace('</head>', '<link rel="icon" href="' + icon + '"></head>');
+      const nextURLs = [icon];
       for (const asset of result.assets) {
         const extension = asset.path.split('.').pop().toLowerCase();
         const type = ({ png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', gif:'image/gif', webp:'image/webp', avif:'image/avif', pdf:'application/pdf', txt:'text/plain', csv:'text/csv', xml:'application/xml' })[extension] || 'application/octet-stream';

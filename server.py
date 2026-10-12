@@ -362,7 +362,7 @@ class Course:
         if notices:
             warnings = '<section class="review"><h2>Review before delivery</h2><ul>' + ''.join('<li><strong>' + esc(n['title']) + '</strong>：' + esc(n['message']) + '</li>' for n in notices) + '</ul></section>'
         empty = '<p class="empty">No materials selected. Choose the content to deliver in the outline.</p>' if not included else ''
-        output = document(title, '<header class="cover"><p>Course archive</p><h1>' + esc(title) + '</h1>' + summary + '</header>' + toc + warnings + empty + ''.join(sections))
+        output = document(title, '<header class="cover"><p>Course archive</p><h1>' + esc(title) + '</h1>' + summary + '</header>' + toc + warnings + empty + ''.join(sections), icon_href='' if exporting else '/favicon.svg')
         if len(output.encode('utf-8')) > 10 * 1024 * 1024:
             raise CourseError('The selected body exceeds 10 MB. Include fewer pages or text materials.')
         return {'html': output, 'notices': notices, 'inventory': inventory, 'used': used,
@@ -508,8 +508,8 @@ DOC_STYLE = """
 """
 
 
-def document(title, content):
-    return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src \'self\'; style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'"><title>' + esc(title) + '</title><style>' + DOC_STYLE + '</style></head><body><main>' + content + '</main></body></html>'
+def document(title, content, icon_href=''):
+    return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src \'self\'; style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'"><title>' + esc(title) + '</title>' + ('<link rel="icon" href="' + esc(icon_href) + '">' if icon_href else '') + '<style>' + DOC_STYLE + '</style></head><body><main>' + content + '</main></body></html>'
 
 
 def demo_bytes():
