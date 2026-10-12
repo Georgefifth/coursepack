@@ -50,19 +50,19 @@ def text_of(node, name, default=''):
 
 def xml(data):
     if b'<!DOCTYPE' in data.upper() or b'<!ENTITY' in data.upper():
-        raise CourseError('课程 XML 含有不支持的声明。请重新导出标准课程包。')
+        raise CourseError('This course XML contains unsupported declarations. Export a standard course package again.')
     try:
         return ET.fromstring(data)
     except ET.ParseError as exc:
-        raise CourseError('课程清单无法读取。请重新导出课程包。') from exc
+        raise CourseError('The course manifest could not be read. Export the course package again.') from exc
 
 
 def safe_path(value):
     if not value or '\\' in value or '\x00' in value or value.startswith('/'):
-        raise CourseError('课程包含有不安全的文件路径。')
+        raise CourseError('This package contains an unsafe file path.')
     parts = value.split('/')
     if '..' in parts or ':' in parts[0]:
-        raise CourseError('课程包含有不安全的文件路径。')
+        raise CourseError('This package contains an unsafe file path.')
     return posixpath.normpath(value)
 
 
@@ -73,32 +73,32 @@ def esc(value):
 class Course:
     def __init__(self, data: bytes):
         if len(data) > MAX_UPLOAD:
-            raise CourseError('文件超过 50 MB。请导出更小的课程包。')
+            raise CourseError('This file exceeds 50 MB. Export a smaller course package.')
         self.files = {}
         try:
             with zipfile.ZipFile(io.BytesIO(data)) as z:
                 infos = z.infolist()
                 if len(infos) > 3000 or sum(i.file_size for i in infos) > MAX_TOTAL:
-                    raise CourseError('课程包解压后过大。请分批导出课程内容。')
+                    raise CourseError('The expanded package exceeds the limit. Export the course in smaller parts.')
                 for i in infos:
                     name = safe_path(i.filename)
                     if i.is_dir():
                         continue
                     if name in self.files:
-                        raise CourseError('课程包中有重复文件路径。请重新导出。')
+                        raise CourseError('This package has duplicate file paths. Export it again.')
                     if i.file_size > MAX_FILE or i.flag_bits & 1 or stat.S_ISLNK(i.external_attr >> 16):
-                        raise CourseError('课程包含有过大的文件、加密文件或符号链接。')
+                        raise CourseError('This package contains oversized files, encrypted entries, or symbolic links.')
                     self.files[name] = z.read(i)
         except (zipfile.BadZipFile, RuntimeError, NotImplementedError) as exc:
-            raise CourseError('无法读取压缩包。请选择 Canvas 导出的 .imscc 或 .zip 文件。') from exc
+            raise CourseError('Could not read this archive. Choose a Canvas .imscc or .zip course export.') from exc
         manifests = [p for p in self.files if PurePosixPath(p).name == 'imsmanifest.xml']
         if len(manifests) != 1:
-            raise CourseError('没有找到唯一的课程清单。首版支持 Canvas「设置 → 导出课程内容」生成的课程包；离线 HTML 包暂不支持。')
+            raise CourseError('No unique course manifest was found. Use Canvas Settings > Export Course Content with the Course export type. Offline HTML packages are not supported.')
         self.manifest_path = manifests[0]
         self.base = posixpath.dirname(self.manifest_path)
         manifest = xml(self.files[self.manifest_path])
         self.title = next((''.join(x.itertext()).strip() for x in manifest.iter()
-                           if tag(x) == 'title' and ''.join(x.itertext()).strip()), '未命名课程')
+                           if tag(x) == 'title' and ''.join(x.itertext()).strip()), 'Untitled course')
         self.items = {}
         self.groups = []
         resources = {}
@@ -120,7 +120,7 @@ class Course:
             r = resources.get(ref, {})
             href = href or r.get('href', '')
             path = self.resolve(href, self.manifest_path) if href else None
-            self.items[rid] = {'id': rid, 'title': title or '未命名材料', 'path': path,
+            self.items[rid] = {'id': rid, 'title': title or 'Untitled material', 'path': path,
                                'href': href, 'type': kind or r.get('type', ''),
                                'indent': indent, 'files': r.get('files', [])}
             return rid
@@ -129,7 +129,7 @@ class Course:
             for n in node:
                 if tag(n) != 'item':
                     continue
-                title = text_of(n, 'title', '未命名材料')
+                title = text_of(n, 'title', 'Untitled material')
                 ref = n.get('identifierref', '')
                 if ref:
                     out.append(add(title, ref, indent=depth))
@@ -154,12 +154,12 @@ class Course:
                     ids = []
                     flatten(n, ids)
                     self.groups.append({'id': 'g' + str(len(self.groups) + 1),
-                                        'title': text_of(n, 'title', '课程模块'), 'items': ids})
+                                        'title': text_of(n, 'title', 'Course module'), 'items': ids})
                 else:
-                    loose.append(add(text_of(n, 'title', '课程材料'), n.get('identifierref', ''),
+                    loose.append(add(text_of(n, 'title', 'Course materials'), n.get('identifierref', ''),
                                      kind='' if n.get('identifierref') else 'heading'))
             if loose:
-                self.groups.append({'id': 'g' + str(len(self.groups) + 1), 'title': '课程材料', 'items': loose})
+                self.groups.append({'id': 'g' + str(len(self.groups) + 1), 'title': 'Course materials', 'items': loose})
 
         meta_path = posixpath.join(self.base, 'course_settings/module_meta.xml')
         if meta_path in self.files:
@@ -179,9 +179,9 @@ class Course:
                         ref = text_of(item, 'identifierref') or item.get('identifierref', '')
                         href = text_of(item, 'url')
                         kind = text_of(item, 'content_type')
-                        ids.append(add(text_of(item, 'title', '课程材料'), ref, href, kind))
+                        ids.append(add(text_of(item, 'title', 'Course materials'), ref, href, kind))
                 modules.append({'id': 'g' + str(len(modules) + 1),
-                                'title': text_of(m, 'title', '课程模块'), 'items': ids})
+                                'title': text_of(m, 'title', 'Course module'), 'items': ids})
             if modules:
                 self.groups = modules
             else:
@@ -194,15 +194,15 @@ class Course:
                  if ref not in referenced and r["href"] and "associatedcontent" not in r["type"].lower()]
         if loose:
             self.groups.append({"id": "g" + str(len(self.groups) + 1),
-                                "title": "未编入模块的材料", "items": loose})
+                                "title": "Materials outside modules", "items": loose})
 
         if not self.items:
             ids = [add(PurePosixPath(r['href']).stem, ref) for ref, r in resources.items() if r['href']]
-            self.groups = [{'id': 'g1', 'title': '课程材料', 'items': ids}]
+            self.groups = [{'id': 'g1', 'title': 'Course materials', 'items': ids}]
         if len(self.items) > 1000:
-            raise CourseError('课程条目超过首版支持的 1000 项，请分批导出。')
+            raise CourseError('This package exceeds 1,000 material entries. Export it in smaller parts.')
         if not self.items:
-            raise CourseError('课程包没有可整理的材料。请确认导出时选择了课程内容。')
+            raise CourseError('No materials were found. Check that you selected course content when exporting.')
         digest = hashlib.sha256()
         for name, content in sorted(self.files.items()):
             digest.update(name.encode('utf-8') + b'\0' + hashlib.sha256(content).digest())
@@ -231,20 +231,20 @@ class Course:
         title = str(payload.get('title', self.title)).strip()[:200] or self.title
         raw_groups = payload.get('groups', self.groups)
         if not isinstance(raw_groups, list) or len(raw_groups) > 1000:
-            raise CourseError('交付目录格式有误，请重新整理。')
+            raise CourseError('The delivery outline is invalid. Arrange the course again.')
         seen = set()
         groups = []
         for g in raw_groups:
             if not isinstance(g, dict) or not isinstance(g.get('items'), list):
-                raise CourseError('交付目录格式有误。')
+                raise CourseError('The delivery outline is invalid.')
             ids = []
             for iid in g['items']:
                 if not isinstance(iid, str) or iid not in self.items or iid in seen:
-                    raise CourseError('交付目录含有未知或重复的材料。')
+                    raise CourseError('The delivery outline contains unknown or duplicate materials.')
                 seen.add(iid)
                 ids.append(iid)
             if ids:
-                groups.append({'title': str(g.get('title', '课程模块'))[:200], 'items': ids})
+                groups.append({'title': str(g.get('title', 'Course module'))[:200], 'items': ids})
         return title, groups
 
     def render(self, payload, token='', exporting=False):
@@ -271,14 +271,14 @@ class Course:
             if href.startswith('#'):
                 return '#' + iid + '-src-' + unquote(href[1:]) if not image else None
             if href.startswith('data:'):
-                notice(iid, 'unsupported', '嵌入数据未保留，请补充独立文件。')
+                notice(iid, 'unsupported', 'Embedded data was not preserved. Provide a separate file.')
                 return None
             parts = urlsplit(href)
             if parts.scheme.lower() in {'http', 'https'} or parts.netloc:
-                notice(iid, 'external', '仍需联网访问：' + href[:250])
+                notice(iid, 'external', 'Internet access is still required: ' + href[:250])
                 return None if image else href
             if parts.scheme:
-                notice(iid, 'unsupported', '不支持的链接已移除。')
+                notice(iid, 'unsupported', 'An unsupported link was removed.')
                 return None
             found = self.resolve(href, origin)
             if found:
@@ -287,14 +287,14 @@ class Course:
                     target = matches[0] + ('-src-' + unquote(parts.fragment) if parts.fragment else '')
                     return ('body.html' if exporting else '') + '#' + target
                 if image and PurePosixPath(found).suffix.lower() not in IMAGE_EXT:
-                    notice(iid, 'unsupported', '图片格式未保留：' + href[:180])
+                    notice(iid, 'unsupported', 'Image format not preserved: ' + href[:180])
                     return None
                 url = asset(found)
                 if url:
                     return url
-                notice(iid, 'unsupported', '此链接指向未包含的网页或不支持的文件：' + href[:180])
+                notice(iid, 'unsupported', 'This link points to an excluded page or unsupported file: ' + href[:180])
             else:
-                notice(iid, 'missing', '包内未找到引用文件：' + href[:180])
+                notice(iid, 'missing', 'Referenced file not found in this package: ' + href[:180])
             return None
 
         for g in groups:
@@ -307,16 +307,16 @@ class Course:
                 status = 'included'
                 kind = item['type'].lower()
                 if kind.replace(' ', '') in {'heading', 'contextmodulesubheader', 'subheader'}:
-                    content = '<p class="source">课程分节标题</p>'
+                    content = '<p class="source">Course section heading</p>'
                 elif not path:
                     href = item['href']
                     if href.startswith(('https://', 'http://')):
-                        notice(iid, 'external', '此材料仍需联网访问：' + href[:250])
-                        content = '<p class="callout">在线材料</p><p><a href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' + esc(href) + '</a></p>'
+                        notice(iid, 'external', 'This material still requires internet access: ' + href[:250])
+                        content = '<p class="callout">Online material</p><p><a href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' + esc(href) + '</a></p>'
                         status = 'external'
                     else:
-                        notice(iid, 'missing', '导出包没有包含此条目的文件。请回到原课程检查并补存。')
-                        content = '<p class="callout">没有找到材料文件。此条目仅保留目录信息。</p>'
+                        notice(iid, 'missing', 'This export does not contain the file for this item. Check the original course and save it separately.')
+                        content = '<p class="callout">Material file not found. Only the outline entry is preserved.</p>'
                         status = 'missing'
                 elif suffix in {'.html', '.htm'}:
                     parser = CleanHTML(lambda href, image=False: link(href, path, iid, image),
@@ -326,7 +326,7 @@ class Course:
                 elif suffix in {'.txt', '.csv'}:
                     content = '<pre>' + esc(self.files[path].decode('utf-8-sig', errors='replace')) + '</pre>'
                     url = asset(path)
-                    content += '<p class="attachment"><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">下载原文件</a></p>'
+                    content += '<p class="attachment"><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">Download original file</a></p>'
                 elif suffix == '.xml' and any(x in kind for x in ('weblink', 'imswl', 'basiclti', 'external')):
                     try:
                         doc = xml(self.files[path])
@@ -335,36 +335,36 @@ class Course:
                     href = next((n.get('href') or (n.text or '').strip() for n in doc.iter()
                                  if tag(n) in {'url', 'launch_url'}), '')
                     if href.startswith(('https://', 'http://')):
-                        notice(iid, 'external', '此材料需要外部服务：' + href[:250])
-                        content = '<p class="callout">外部服务材料</p><p><a href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' + esc(href) + '</a></p>'
+                        notice(iid, 'external', 'This material requires an external service: ' + href[:250])
+                        content = '<p class="callout">External service material</p><p><a href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' + esc(href) + '</a></p>'
                     else:
-                        notice(iid, 'unsupported', '外部工具描述未能解析。原 XML 作为附件保留。')
-                        content = '<p class="attachment"><a href="' + esc(asset(path)) + '" target="_blank" rel="noopener noreferrer">下载原描述文件</a></p>'
+                        notice(iid, 'unsupported', 'The external tool description could not be read. Its original XML is preserved as an attachment.')
+                        content = '<p class="attachment"><a href="' + esc(asset(path)) + '" target="_blank" rel="noopener noreferrer">Download original description</a></p>'
                     status = 'external'
                 elif suffix in SAFE_EXT:
                     url = asset(path)
-                    content = '<div class="attachment"><strong>' + esc(PurePosixPath(path).name) + '</strong><p>原文件单独交付，未并入可打印正文。</p><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">打开 / 下载附件</a></div>'
+                    content = '<div class="attachment"><strong>' + esc(PurePosixPath(path).name) + '</strong><p>The original file is delivered separately, not merged into the printable body.</p><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">Open / download attachment</a></div>'
                     status = 'attachment'
                     if suffix == '.xml':
-                        notice(iid, 'unsupported', '测验或结构化材料作为原 XML 附件保留，首版不重建其内容。')
+                        notice(iid, 'unsupported', 'Quiz or structured material is preserved as an original XML attachment. Its interactive content is not reconstructed.')
                 else:
-                    notice(iid, 'unsupported', '暂不支持此文件类型：' + (suffix or '无扩展名'))
-                    content = '<p class="callout">此材料未能进入交付包，请另行保存。</p>'
+                    notice(iid, 'unsupported', 'Unsupported file type: ' + (suffix or 'no extension'))
+                    content = '<p class="callout">This material could not be included. Save it separately.</p>'
                     status = 'unsupported'
                 body.append('<article id="' + iid + '"><h3>' + esc(item['title']) + '</h3>' + content + '</article>')
                 inventory.append({'id': iid, 'title': item['title'], 'module': g['title'],
                                   'source': path or item['href'], 'status': status})
             body.append('</section>')
             sections.append(''.join(body))
-        summary = '<p class="scope">本档案包含 ' + str(len(included)) + ' 项材料；原目录中 ' + str(len(self.items) - len(included)) + ' 项未选入。附件单独保存；在线内容仍需联网。此报告仅检查已导入的课程包。</p>'
-        toc = '<nav class="contents"><h2>交付目录</h2>' + ''.join('<h3>' + esc(g['title']) + '</h3><ol>' + ''.join('<li><a href="#' + iid + '">' + esc(self.items[iid]['title']) + '</a></li>' for iid in g['items']) + '</ol>' for g in groups) + '</nav>'
+        summary = '<p class="scope">This archive includes ' + str(len(included)) + ' items; ' + str(len(self.items) - len(included)) + ' original items were not selected. Attachments are separate; online content still needs internet access. This report checks only the imported package.</p>'
+        toc = '<nav class="contents"><h2>Delivery outline</h2>' + ''.join('<h3>' + esc(g['title']) + '</h3><ol>' + ''.join('<li><a href="#' + iid + '">' + esc(self.items[iid]['title']) + '</a></li>' for iid in g['items']) + '</ol>' for g in groups) + '</nav>'
         warnings = ''
         if notices:
-            warnings = '<section class="review"><h2>交付前需确认</h2><ul>' + ''.join('<li><strong>' + esc(n['title']) + '</strong>：' + esc(n['message']) + '</li>' for n in notices) + '</ul></section>'
-        empty = '<p class="empty">尚未选入材料。请在左侧选择要交付的内容。</p>' if not included else ''
-        output = document(title, '<header class="cover"><p>课程档案</p><h1>' + esc(title) + '</h1>' + summary + '</header>' + toc + warnings + empty + ''.join(sections))
+            warnings = '<section class="review"><h2>Review before delivery</h2><ul>' + ''.join('<li><strong>' + esc(n['title']) + '</strong>：' + esc(n['message']) + '</li>' for n in notices) + '</ul></section>'
+        empty = '<p class="empty">No materials selected. Choose the content to deliver in the outline.</p>' if not included else ''
+        output = document(title, '<header class="cover"><p>Course archive</p><h1>' + esc(title) + '</h1>' + summary + '</header>' + toc + warnings + empty + ''.join(sections))
         if len(output.encode('utf-8')) > 10 * 1024 * 1024:
-            raise CourseError('选入的正文超过 10 MB。请减少本次交付的页面或文本材料。')
+            raise CourseError('The selected body exceeds 10 MB. Include fewer pages or text materials.')
         return {'html': output, 'notices': notices, 'inventory': inventory, 'used': used,
                 'count': len(included), 'excluded': len(self.items) - len(included)}
 
@@ -377,28 +377,28 @@ class Course:
     def kind(item):
         suffix = PurePosixPath(item['path'] or '').suffix.lower()
         if item['type'].lower().replace(' ', '') in {'heading', 'contextmodulesubheader', 'subheader'}:
-            return '分节'
+            return 'Section'
         if suffix in {'.html', '.htm'}:
-            return '页面'
+            return 'Page'
         if suffix == '.pdf':
-            return 'PDF 附件'
+            return 'PDF attachment'
         if any(x in item['type'].lower() for x in ('weblink', 'imswl', 'external', 'basiclti')):
-            return '在线材料'
-        return '附件' if item['path'] else '待检查'
+            return 'Online material'
+        return 'Attachment' if item['path'] else 'Needs review'
 
     def export(self, payload):
         rendered = self.render(payload, exporting=True)
         if not rendered['count']:
-            raise CourseError('请至少选择一项材料再导出。')
+            raise CourseError('Select at least one item before exporting.')
         out = io.BytesIO()
         title, groups = self.snapshot(payload)
-        index = '<h1>' + esc(title) + '</h1><p>课程档案已整理。<a href="body.html">阅读全部正文</a>；需要 PDF 时，在正文页面使用浏览器的打印功能。</p>'
+        index = '<h1>' + esc(title) + '</h1><p>Your course archive is ready. <a href="body.html">Read the complete body</a>. For a PDF, use the browser print command on the body page.</p>'
         for g in groups:
             index += '<h2>' + esc(g['title']) + '</h2><ul>' + ''.join('<li><a href="body.html#' + iid + '">' + esc(self.items[iid]['title']) + '</a></li>' for iid in g['items']) + '</ul>'
-        index += '<p>附件保持原格式，见正文中的附件链接。外部内容不会被自动下载。</p>'
+        index += '<p>Attachments retain their original formats; use the links in the body. External content is not downloaded automatically.</p>'
         report = {'title': title, 'included': rendered['inventory'], 'excluded_count': rendered['excluded'],
                   'notices': rendered['notices'], 'attachments': sorted(rendered['used']),
-                  'scope': '仅检查导入包；不能证明原课程完整或认证合格。'}
+                  'scope': 'Checks the imported package only; does not establish source-course completeness or accreditation compliance.'}
         with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
             z.writestr('index.html', document(title, index))
             z.writestr('body.html', rendered['html'])
@@ -433,21 +433,21 @@ class CleanHTML(HTMLParser):
         if name in {'video', 'audio', 'source'}:
             attrs = dict(attrs)
             url = self.resolver(attrs['src']) if attrs.get('src') else None
-            self.on_unsupported('视频或音频未并入可打印正文；可用的原文件作为附件保留。')
+            self.on_unsupported('Video or audio is not merged into the printable body; available originals are preserved as attachments.')
             if url:
-                self.out.append('<p class="attachment"><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">打开媒体原文件</a>（未并入可打印正文）</p>')
+                self.out.append('<p class="attachment"><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">Open original media file</a> (not merged into the printable body)</p>')
             return
         if name == 'math':
-            self.on_unsupported('数学标记已简化为文本，请核对公式或补充 PDF 附件。')
+            self.on_unsupported('Math markup was simplified to text. Check formulas or provide a PDF attachment.')
         if name in self.blocked:
             if name in {'svg', 'form', 'object', 'embed'}:
-                self.on_unsupported('交互内容或嵌入图形未转换，请补充独立文件。')
-                self.out.append('<p class="callout">此处的交互内容或图形未转换，请补充独立文件。</p>')
+                self.on_unsupported('Interactive content or embedded graphics were not converted. Provide a separate file.')
+                self.out.append('<p class="callout">Interactive content or graphics here were not converted. Provide a separate file.</p>')
             if name == 'iframe':
                 attrs = dict(attrs)
                 url = self.resolver(attrs['src']) if attrs.get('src') else None
-                self.out.append('<p class="callout">嵌入内容未纳入正文。' +
-                                ('<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">打开对应资源</a>' if url else '请检查外部资源。') + '</p>')
+                self.out.append('<p class="callout">Embedded content was not included in the body. ' +
+                                ('<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">Open linked resource</a>' if url else 'Check the external resource.') + '</p>')
             if name not in {'embed'}:
                 self.skipping.append(name)
             return
@@ -465,7 +465,7 @@ class CleanHTML(HTMLParser):
                     if not url.startswith(('#', 'body.html#')):
                         extra += ' target="_blank"'
             elif name == 'img':
-                self.out.append('<span class="callout">[图片未包含：' + esc(attrs.get('alt', '请补存')) + ']</span>')
+                self.out.append('<span class="callout">[Image not included：' + esc(attrs.get('alt', 'save separately')) + ']</span>')
                 return
             if name == 'img':
                 extra += ' alt="' + esc(attrs.get('alt', '')) + '"'
@@ -504,24 +504,24 @@ class CleanHTML(HTMLParser):
 
 
 DOC_STYLE = """
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#fff;color:#172b45;font:16px/1.75 Georgia,'Noto Serif CJK SC','Songti SC',serif}main{max-width:850px;margin:auto;padding:54px 56px}h1{font-size:34px;line-height:1.35;overflow-wrap:anywhere}h2{font-size:24px;line-height:1.4}h3{font-size:20px;line-height:1.5}a{color:#315cba;overflow-wrap:anywhere}img{max-width:100%;height:auto}table{border-collapse:collapse;width:100%;margin:16px 0}td,th{border:1px solid #cbd6e3;padding:8px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f0f4f8;padding:18px;font:13px/1.6 monospace}p{overflow-wrap:anywhere}.cover{border-bottom:3px solid #315cba;padding-bottom:24px}.cover>p:first-child{font:14px system-ui;color:#315cba}.scope,.source{font:13px/1.7 system-ui;color:#53657b}.contents{padding:24px 0;border-bottom:1px solid #d4deea}.contents ol{padding-left:24px}.module{margin:40px 0}.module>h2{border-bottom:1px solid #d4deea;padding-bottom:14px}article{margin:28px 0;scroll-margin-top:20px}.attachment{border-left:3px solid #315cba;padding:12px 20px;background:#f3f6fb;font:14px/1.7 system-ui}.attachment p{margin:4px 0}.callout{background:#fff5e4;color:#82520c;padding:6px 10px;font:13px/1.6 system-ui}.review{font:13px/1.7 system-ui;background:#fff8ec;padding:18px 22px;margin:24px 0}.review h2{font:600 17px system-ui}.review li{margin:8px 0;overflow-wrap:anywhere}.empty{text-align:center;padding:60px 0;color:#53657b}@media(max-width:600px){main{padding:28px 22px}h1{font-size:27px}}@page{size:A4;margin:18mm}@media print{main{max-width:none;padding:0}body{font-size:11pt}h1{font-size:25pt}h2{font-size:18pt}h3{font-size:14pt}h1,h2,h3{break-after:avoid}img,table,.attachment{break-inside:avoid}.cover{break-after:page}.module{break-before:page}.contents a{text-decoration:none;color:inherit}.review{background:none;border:1px solid #d4deea}a{color:inherit}.scope{font-size:9pt}}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#fff;color:#172b45;font:16px/1.75 Georgia,'Noto Serif CJK SC','Songti SC',serif}main{max-width:850px;margin:auto;padding:54px 56px}h1{font-size:34px;line-height:1.35;overflow-wrap:anywhere}h2{font-size:24px;line-height:1.4}h3{font-size:20px;line-height:1.5}a{color:#315cba;overflow-wrap:anywhere}img{max-width:100%;height:auto}table{border-collapse:collapse;width:100%;margin:16px 0}td,th{border:1px solid #cbd6e3;padding:8px}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f0f4f8;padding:18px;font:13px/1.6 monospace}p{overflow-wrap:anywhere}.cover{border-bottom:3px solid #315cba;padding-bottom:24px}.cover>p:first-child{font:14px system-ui;color:#315cba}.scope,.source{font:13px/1.7 system-ui;color:#53657b}.contents{padding:24px 0;border-bottom:1px solid #d4deea}.contents ol{padding-left:24px}.module{margin:40px 0}.module>h2{border-bottom:1px solid #d4deea;padding-bottom:14px}article{margin:28px 0;scroll-margin-top:20px}.attachment{border-left:3px solid #315cba;padding:12px 20px;background:#f3f6fb;font:14px/1.7 system-ui}.attachment p{margin:4px 0}.callout{background:#fff5e4;color:#82520c;padding:6px 10px;font:13px/1.6 system-ui}.review{font:13px/1.7 system-ui;background:#fff8ec;padding:18px 22px;margin:24px 0}.review h2{font:600 17px system-ui}.review li{margin:8px 0;overflow-wrap:anywhere}.empty{text-align:center;padding:60px 0;color:#53657b}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}@media(max-width:600px){main{padding:28px 22px}h1{font-size:27px}}@page{size:A4;margin:18mm}@media print{main{max-width:none;padding:0}body{font-size:11pt}h1{font-size:25pt}h2{font-size:18pt}h3{font-size:14pt}h1,h2,h3{break-after:avoid}img,table,.attachment{break-inside:avoid}.cover{break-after:page}.module{break-before:page}.contents a{text-decoration:none;color:inherit}.review{background:none;border:1px solid #d4deea}a{color:inherit}.scope{font-size:9pt}}
 """
 
 
 def document(title, content):
-    return '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src \'self\'; style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'"><title>' + esc(title) + '</title><style>' + DOC_STYLE + '</style></head><body><main>' + content + '</main></body></html>'
+    return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src \'self\'; style-src \'unsafe-inline\'; base-uri \'none\'; form-action \'none\'"><title>' + esc(title) + '</title><style>' + DOC_STYLE + '</style></head><body><main>' + content + '</main></body></html>'
 
 
 def demo_bytes():
-    manifest = '''<manifest xmlns="http://www.imsglobal.org/xsd/imsccv1p1/imscp_v1p1" identifier="demo"><metadata><title>设计研究方法 · 秋季课程</title></metadata><organizations><organization identifier="o"><item identifier="root"><title>课程</title><item identifier="m1"><title>开始之前</title><item identifier="a" identifierref="r1"><title>课程说明与学习目标</title></item><item identifier="b" identifierref="r2"><title>研究伦理与访谈准备</title></item></item><item identifier="m2"><title>第一周：观察真实任务</title><item identifier="c" identifierref="r3"><title>观察记录练习</title></item><item identifier="d" identifierref="r4"><title>访谈记录表</title></item><item identifier="e" identifierref="r5"><title>延伸阅读</title></item></item><item identifier="m3"><title>第二周：整理证据</title><item identifier="f" identifierref="r6"><title>从记录到发现</title></item></item></item></organization></organizations><resources><resource identifier="r1" type="webcontent" href="wiki_content/intro.html"/><resource identifier="r2" type="webcontent" href="wiki_content/ethics.html"/><resource identifier="r3" type="webcontent" href="wiki_content/exercise.html"/><resource identifier="r4" type="webcontent" href="web_resources/interview.csv"/><resource identifier="r5" type="imswl_xmlv1p1" href="links/reading.xml"/><resource identifier="r6" type="webcontent" href="wiki_content/evidence.html"/></resources></manifest>'''
+    manifest = '''<manifest xmlns="http://www.imsglobal.org/xsd/imsccv1p1/imscp_v1p1" identifier="demo"><metadata><title>Design Research Methods · Fall Course</title></metadata><organizations><organization identifier="o"><item identifier="root"><title>Course</title><item identifier="m1"><title>Before you begin</title><item identifier="a" identifierref="r1"><title>Course overview and learning goals</title></item><item identifier="b" identifierref="r2"><title>Research ethics and interview preparation</title></item></item><item identifier="m2"><title>Week 1: Observe real tasks</title><item identifier="c" identifierref="r3"><title>Observation exercise</title></item><item identifier="d" identifierref="r4"><title>Interview worksheet</title></item><item identifier="e" identifierref="r5"><title>Further reading</title></item></item><item identifier="m3"><title>Week 2: Organize evidence</title><item identifier="f" identifierref="r6"><title>From notes to findings</title></item></item></item></organization></organizations><resources><resource identifier="r1" type="webcontent" href="wiki_content/intro.html"/><resource identifier="r2" type="webcontent" href="wiki_content/ethics.html"/><resource identifier="r3" type="webcontent" href="wiki_content/exercise.html"/><resource identifier="r4" type="webcontent" href="web_resources/interview.csv"/><resource identifier="r5" type="imswl_xmlv1p1" href="links/reading.xml"/><resource identifier="r6" type="webcontent" href="wiki_content/evidence.html"/></resources></manifest>'''
     files = {
         'imsmanifest.xml': manifest,
-        'wiki_content/intro.html': '<h2>把问题放回真实的工作中</h2><p>这是一门围绕观察、访谈与证据整理的实践课程。你将跟随一位参与者，记录他们完成任务的过程。</p><h3>完成课程后，你能够</h3><ul><li>描述具体用户、场景和任务。</li><li>区分观察事实与个人解释。</li><li>用证据选择下一步，而不是凭直觉增加功能。</li></ul><table><tr><th>考核</th><th>比例</th></tr><tr><td>观察记录</td><td>40%</td></tr><tr><td>研究报告</td><td>60%</td></tr></table>',
-        'wiki_content/ethics.html': '<p>访谈前说明目的，并获得参与者同意。对外分享记录时移除姓名、联系方式和不必要的身份信息。</p><blockquote>记录参与者做了什么，再讨论为什么。</blockquote><p>使用<a href="../web_resources/interview.csv">访谈记录表</a>整理事实。</p>',
-        'wiki_content/exercise.html': '<h3>课堂练习：一次真实交付</h3><p>观察参与者整理一份要交给别人的材料。记录他们查找、排序、检查和修改的动作。</p><ol><li>确定材料接收者。</li><li>记录每次手工调整。</li><li>让参与者解释交付前最后一次检查。</li></ol><p>以下图片故意未包含，用于演示缺项提示：</p><img src="../web_resources/missing-photo.png" alt="观察流程示意图">',
-        'web_resources/interview.csv': '时间,观察到的动作,原话,待确认的问题\n09:10,整理附件,我不知道哪个是最终版,版本来源\n',
-        'links/reading.xml': '<webLink xmlns="http://www.imsglobal.org/xsd/imswl_v1p1"><title>延伸阅读</title><url href="https://www.imsglobal.org/"/></webLink>',
-        'wiki_content/evidence.html': '<p>把观察整理为一条可检查的陈述：</p><pre>参与者 → 任务 → 阻碍 → 当前办法 → 证据</pre><h3>提交前检查</h3><ul><li>每项发现都能追溯到记录。</li><li>明确标记推测。</li><li>写出可能推翻结论的证据。</li></ul>',
+        'wiki_content/intro.html': '<h2>Study a real workflow</h2><p>Practice observation, interviewing, and organizing evidence. Follow a participant and record how they complete a task.</p><h3>Learning goals</h3><ul><li>Describe a specific user, context, and task.</li><li>Distinguish observation from interpretation.</li><li>Choose the next step using evidence.</li></ul><table><tr><th>Assessment</th><th>Weight</th></tr><tr><td>Observation notes</td><td>40%</td></tr><tr><td>Research report</td><td>60%</td></tr></table>',
+        'wiki_content/ethics.html': '<p>Explain the purpose of the interview and obtain consent. Remove names, contact details, and unnecessary identifiers before sharing notes.</p><blockquote>Record what the participant did before discussing why.</blockquote><p>Use the <a href="../web_resources/interview.csv">interview worksheet</a> to organize facts.</p>',
+        'wiki_content/exercise.html': '<h3>Exercise: A real handover</h3><p>Observe someone preparing materials for another person. Record how they find, order, check, and revise them.</p><ol><li>Identify the recipient.</li><li>Record each manual adjustment.</li><li>Ask the participant to explain their final check.</li></ol><p>This image is intentionally missing to demonstrate issue reporting:</p><img src="../web_resources/missing-photo.png" alt="Observation workflow diagram">',
+        'web_resources/interview.csv': 'Time,Observed action,Quote,Question to verify\n09:10,Organizing attachments,I do not know which is the final version,Version source\n',
+        'links/reading.xml': '<webLink xmlns="http://www.imsglobal.org/xsd/imswl_v1p1"><title>Further reading</title><url href="https://www.imsglobal.org/"/></webLink>',
+        'wiki_content/evidence.html': '<p>Turn observations into a statement that can be checked:</p><pre>Participant → Task → Obstacle → Current workaround → Evidence</pre><h3>Before submission</h3><ul><li>Trace each finding back to a record.</li><li>Label assumptions.</li><li>Describe evidence that could disprove the finding.</li></ul>',
     }
     out = io.BytesIO()
     with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED) as z:
@@ -548,7 +548,7 @@ def get_session(token):
         entry = SESSIONS.get(token)
         if not entry or time.time() - entry[0] > 7200:
             SESSIONS.pop(token, None)
-            raise CourseError('课程会话已结束。请重新导入课程包。')
+            raise CourseError('This course session has ended. Reimport the course package.')
         return entry[1]
 
 
@@ -582,18 +582,18 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         if not self.allowed_request():
-            return self.send({'error': '只允许本机访问。'}, status=403)
+            return self.send({'error': 'Only local access is allowed.'}, status=403)
         parts = urlsplit(self.path)
         query = parse_qs(parts.query)
         try:
-            if parts.path in {'/', '/app.js', '/transport.js', '/style.css'}:
+            if parts.path in {'/', '/app.js', '/transport.js', '/style.css', '/favicon.svg'}:
                 name = 'index.html' if parts.path == '/' else parts.path[1:]
                 return self.send((ROOT / 'static' / name).read_bytes(), mimetypes.guess_type(name)[0] or 'text/plain')
             if parts.path in {'/api/document', '/api/archive'}:
                 course = get_session(query.get('token', [''])[0])
                 view = query.get('view', [''])[0]
                 if view not in course.views:
-                    raise CourseError('预览已过期，请重新生成。')
+                    raise CourseError('This preview has expired. Generate it again.')
                 if parts.path == '/api/archive':
                     return self.send(course.export(course.views[view]['payload']), 'application/zip', filename='CoursePack-archive.zip')
                 return self.send(course.views[view]['html'], 'text/html; charset=utf-8', document_page=True)
@@ -601,22 +601,22 @@ class Handler(BaseHTTPRequestHandler):
                 course = get_session(parts.path.split('/')[-1])
                 path = query.get('path', [''])[0]
                 if path not in course.files or PurePosixPath(path).suffix.lower() not in SAFE_EXT:
-                    return self.send({'error': '附件不可用。'}, status=404)
+                    return self.send({'error': 'This attachment is unavailable.'}, status=404)
                 suffix = PurePosixPath(path).suffix.lower()
                 inline = suffix in IMAGE_EXT or suffix == '.pdf'
                 return self.send(course.files[path], mimetypes.guess_type(path)[0] or 'application/octet-stream',
                                  filename=None if inline else PurePosixPath(path).name, document_page=True)
-            return self.send({'error': '页面不存在。'}, status=404)
+            return self.send({'error': 'Page not found.'}, status=404)
         except CourseError as exc:
             self.send({'error': str(exc)}, status=400)
 
     def do_POST(self):
         if not self.allowed_request():
-            return self.send({'error': '只允许本机访问。'}, status=403)
+            return self.send({'error': 'Only local access is allowed.'}, status=403)
         try:
             length = int(self.headers.get('Content-Length', '0'))
             if length < 0 or length > MAX_UPLOAD:
-                raise CourseError('文件超过 50 MB，请导出更小的课程包。')
+                raise CourseError('This file exceeds 50 MB. Export a smaller package.')
             data = self.rfile.read(length)
             path = urlsplit(self.path).path
             if path in {'/api/import', '/api/demo'}:
@@ -625,7 +625,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(course.public(token))
             payload = json.loads(data or b'{}')
             if not isinstance(payload, dict):
-                raise CourseError('请求格式有误。')
+                raise CourseError('Invalid request format.')
             token = payload.get('token', '')
             course = get_session(token)
             if path == '/api/reset':
@@ -645,11 +645,11 @@ class Handler(BaseHTTPRequestHandler):
                                   'excluded': rendered['excluded']})
             if path == '/api/export':
                 return self.send(course.export(payload), 'application/zip', filename='CoursePack-archive.zip')
-            self.send({'error': '请求不存在。'}, status=404)
+            self.send({'error': 'Unknown request.'}, status=404)
         except (CourseError, json.JSONDecodeError, ValueError, TypeError) as exc:
-            self.send({'error': str(exc) if isinstance(exc, CourseError) else '请求格式有误，请重试。'}, status=400)
+            self.send({'error': str(exc) if isinstance(exc, CourseError) else 'Invalid request format. Try again.'}, status=400)
         except Exception:
-            self.send({'error': '处理未完成。请确认课程包格式，或尝试更小的导出包。'}, status=500)
+            self.send({'error': 'Processing failed. Check the package format or try a smaller export.'}, status=500)
 
 
 def main():

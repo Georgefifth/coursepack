@@ -1,0 +1,11 @@
+{
+  "name": "coursepack-qa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Headless Firefox business-workflow acceptance for CoursePack",
+  "scripts": {
+    "qa:public": "node qa/firefox.cjs https://georgefifth.github.io/coursepack/ public",
+    "qa:local": "node qa/firefox.cjs http://127.0.0.1:8765/ native"
+  },
+  "devDependencies": { "playwright": "1.62.1" }
+}

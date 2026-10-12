@@ -45,13 +45,13 @@ class CourseAcceptanceTests(unittest.TestCase):
         course = server.Course(fixture(meta=meta))
         self.assertEqual(course.groups[0]['title'], 'Studio')
         self.assertEqual([i['path'] for i in course.items.values()], ['wiki_content/exercise.html', 'wiki_content/start.html', 'web_resources/手册 (1).pdf'])
-        self.assertEqual(course.groups[-1]['title'], '未编入模块的材料')
+        self.assertEqual(course.groups[-1]['title'], 'Materials outside modules')
 
     def test_module_heading_is_not_a_missing_file(self):
         meta = '<modules><module><title>Week</title><items><item><title>Discussion</title><content_type>ContextModuleSubHeader</content_type></item></items></module></modules>'
         course = server.Course(fixture(meta=meta))
         result = course.render({})
-        self.assertEqual(course.kind(course.items['i1']), '分节')
+        self.assertEqual(course.kind(course.items['i1']), 'Section')
         self.assertFalse(any(n['item'] == 'i1' for n in result['notices']))
         self.assertEqual(len(course.items), 4)
 
@@ -68,7 +68,7 @@ class CourseAcceptanceTests(unittest.TestCase):
         course = server.Course(package(files))
         result = course.render({})
         self.assertIn('Start here', result['html'])
-        self.assertTrue(any('未能解析' in n['message'] for n in result['notices']))
+        self.assertTrue(any('could not be read' in n['message'] for n in result['notices']))
         with zipfile.ZipFile(io.BytesIO(course.export({}))) as z:
             self.assertIn('assets/broken.xml', z.namelist())
 
@@ -120,7 +120,7 @@ class CourseAcceptanceTests(unittest.TestCase):
         self.assertTrue(any(n['kind'] == 'missing' for n in result['notices']))
         self.assertTrue(any(n['kind'] == 'external' for n in result['notices']))
         self.assertNotIn('src="https://', result['html'])
-        self.assertIn('图片未包含', result['html'])
+        self.assertIn('Image not included', result['html'])
         self.assertIn('href="https://example.com"', result['html'])
 
     def test_external_and_attachment_links_preserve_reader(self):
@@ -128,7 +128,7 @@ class CourseAcceptanceTests(unittest.TestCase):
         result = server.Course(fixture(page)).render({}, exporting=True)['html']
         self.assertIn('href="https://example.com" rel="noopener noreferrer" target="_blank"', result)
         self.assertIn('href="body.html#i2" rel="noopener noreferrer">Next', result)
-        self.assertIn('target="_blank" rel="noopener noreferrer">打开 / 下载附件', result)
+        self.assertIn('target="_blank" rel="noopener noreferrer">Open / download attachment', result)
         # Generated XML weblinks must follow the same policy as imported HTML links.
         demo = server.Course(server.demo_bytes()).render({})['html']
         self.assertIn('href="https://www.imsglobal.org/" target="_blank" rel="noopener noreferrer"', demo)
@@ -148,10 +148,10 @@ class CourseAcceptanceTests(unittest.TestCase):
         files['web_resources/clip.mp4'] = b'original-media'
         course = server.Course(package(files))
         result = course.render({}, exporting=True)
-        self.assertIn('打开媒体原文件', result['html'])
+        self.assertIn('Open original media file', result['html'])
         self.assertIn('web_resources/clip.mp4', result['used'])
-        self.assertTrue(any('数学' in n['message'] for n in result['notices']))
-        self.assertTrue(any('图形' in n['message'] for n in result['notices']))
+        self.assertTrue(any('Math' in n['message'] for n in result['notices']))
+        self.assertTrue(any('graphics' in n['message'] for n in result['notices']))
 
     def test_unsafe_archives_rejected(self):
         for path in ['../outside.txt', '/absolute.txt', 'folder\\file.txt']:
@@ -163,7 +163,7 @@ class CourseAcceptanceTests(unittest.TestCase):
             server.Course(package({'imsmanifest.xml': '<!DOCTYPE x [<!ENTITY a "x">]><manifest/>'}))
 
     def test_wrong_export_type_has_actionable_error(self):
-        with self.assertRaisesRegex(server.CourseError, '离线 HTML'):
+        with self.assertRaisesRegex(server.CourseError, 'Offline HTML'):
             server.Course(package({'index.html': '<h1>Offline course</h1>'}))
 
     def test_empty_export_and_duplicate_selection_rejected(self):

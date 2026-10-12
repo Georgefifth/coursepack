@@ -1,60 +1,56 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CoursePack · 课程档案整理器</title>
+  <title>CoursePack · Course archive builder</title>
+  <link rel="icon" href="favicon.svg">
   <link rel="stylesheet" href="style.css">
   <script src="transport.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
   <header class="app-header">
-    <a class="brand" href="./" aria-label="CoursePack 首页"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><strong>CoursePack</strong><span class="brand-sub">课程档案整理器</span></a>
-    <div class="header-actions"><span class="local-label"><span></span>本机处理</span><button class="quiet" id="helpButton">导入说明</button></div>
+    <a class="brand" href="./" aria-label="CoursePack home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><strong>CoursePack</strong><span class="brand-sub">Course archive builder</span></a>
+    <div class="header-actions"><span class="local-label"><span></span>Local processing</span><button class="quiet" id="helpButton">Import guide</button></div>
   </header>
-
   <main>
     <section id="welcome" class="welcome">
       <div class="welcome-copy">
-        <p class="intro-label">准备好交付你的课程</p>
-        <h1>让课程材料<br>成为一份清楚的档案。</h1>
-        <p class="intro">把已有课程包放进来，选择内容、调整顺序，边整理边看最终结果。原附件和待确认事项一起交代清楚。</p>
-        <div class="welcome-actions"><button class="primary large" id="importButton">导入课程包</button><button class="secondary large" id="demoButton">试用示例课程</button></div>
+        <p class="intro-label">Prepare your course for handover</p>
+        <h1>A clear course archive.<br>Ready to share.</h1>
+        <p class="intro">Import your existing course package, choose materials, and arrange their order. Preview the result with original attachments and clear notes about missing content.</p>
+        <div class="welcome-actions"><button class="primary large" id="importButton">Import course package</button><button class="secondary large" id="demoButton">Try demo course</button></div>
         <p id="engineStatus" class="engine-status" role="status"></p>
-        <p class="small-note" id="privacyNote">支持包含课程清单的 Canvas .imscc / .zip，最大 50 MB。<br>文件只发送到本机服务，不连接学校账号。</p>
+        <p class="small-note" id="privacyNote">Canvas .imscc / .zip with a course manifest, up to 50 MB.<br>Files go only to the local service. No school login.</p>
       </div>
-      <div class="dossier" aria-hidden="true">
-        <div class="dossier-cover"><div class="binding"></div><p>课程档案</p><h2>设计研究方法</h2><span>秋季课程</span><div class="dossier-line"></div><ol><li>课程说明与学习目标</li><li>观察真实任务</li><li>整理研究证据</li></ol><div class="dossier-footer">正文与附件，有序交付。</div></div>
-        <div class="paper-edge"></div>
-      </div>
-      <div class="workflow"><div><strong>导入</strong><span>保留课程结构</span></div><b aria-hidden="true">›</b><div><strong>整理</strong><span>选择内容与顺序</span></div><b aria-hidden="true">›</b><div><strong>交付</strong><span>预览、归档与打印</span></div></div>
+      <div class="dossier" aria-hidden="true"><div class="dossier-cover"><div class="binding"></div><p>Course archive</p><h2>Design Research Methods</h2><span>Fall course</span><div class="dossier-line"></div><ol><li>Overview and learning goals</li><li>Observe a real task</li><li>Organize research evidence</li></ol><div class="dossier-footer">Body and attachments, ready to deliver.</div></div><div class="paper-edge"></div></div>
+      <div class="workflow"><div><strong>Import</strong><span>Keep the course structure</span></div><b aria-hidden="true">›</b><div><strong>Arrange</strong><span>Choose content and order</span></div><b aria-hidden="true">›</b><div><strong>Deliver</strong><span>Preview, archive, and print</span></div></div>
     </section>
-
     <section id="workbench" class="workbench" hidden>
       <div class="course-bar">
-        <div class="course-name"><label for="courseTitle">档案名称</label><input id="courseTitle" maxlength="200" aria-label="档案名称"><span id="sourceLabel"></span></div>
-        <div class="delivery-actions"><button class="quiet" id="replaceButton">重新导入</button><button class="secondary" id="printButton">打印 / 保存 PDF</button><button class="primary" id="exportButton">下载档案</button></div>
+        <div class="course-name"><label for="courseTitle">Archive name</label><input id="courseTitle" maxlength="200" aria-label="Archive name"><span id="sourceLabel"></span></div>
+        <div class="delivery-actions"><button class="quiet" id="replaceButton">Reimport</button><button class="secondary" id="printButton">Print / Save PDF</button><button class="primary" id="exportButton">Download archive</button></div>
       </div>
       <div class="workspace">
-        <aside class="outline" aria-label="课程目录整理">
-          <div class="outline-heading"><div><h2>交付内容</h2><p id="selectionCount">正在读取课程…</p></div><button class="text-button" id="selectAllButton">全不选</button></div>
-          <div class="outline-filters"><label for="materialSearch">查找材料</label><input id="materialSearch" type="search" placeholder="标题或文件名" autocomplete="off"><label class="filter-check"><input id="issuesOnly" type="checkbox">仅显示需确认</label><div class="filter-actions"><span id="filterCount" role="status"></span><button class="text-button" id="selectVisibleButton" hidden>选择匹配项</button></div></div>
-          <p class="outline-hint">拖动调整顺序，也可使用上下移动按钮。</p>
+        <aside class="outline" aria-label="Arrange course materials">
+          <div class="outline-heading"><div><h2>Delivery content</h2><p id="selectionCount">Reading course…</p></div><button class="text-button" id="selectAllButton">Clear selection</button></div>
+          <div class="outline-filters"><label for="materialSearch">Find materials</label><input id="materialSearch" type="search" placeholder="Title or filename" autocomplete="off"><label class="filter-check"><input id="issuesOnly" type="checkbox">Only items needing review</label><div class="filter-actions"><span id="filterCount" role="status"></span><button class="text-button" id="selectVisibleButton" hidden>Select matches</button></div></div>
+          <p class="outline-hint">Drag to reorder, or use the up and down buttons.</p>
           <div id="moduleList"></div>
-          <div class="outline-footer"><button class="text-button" id="resetOrderButton">恢复原始目录</button><button class="text-button" id="clearButton">清除课程</button></div>
+          <div class="outline-footer"><button class="text-button" id="resetOrderButton">Restore original outline</button><button class="text-button" id="clearButton">Clear course</button></div>
         </aside>
-        <section class="preview-panel" aria-label="交付预览">
-          <div class="preview-bar"><div class="tabs" role="tablist" aria-label="交付检查"><button id="previewTab" role="tab" aria-selected="true" aria-controls="previewArea">交付预览</button><button id="issuesTab" role="tab" aria-selected="false" aria-controls="issuesArea">待确认 <span id="issueCount">0</span></button></div><span class="preview-status" id="previewStatus" role="status">正在生成预览</span></div>
-          <div class="preview-area" id="previewArea" role="tabpanel" aria-labelledby="previewTab"><iframe id="previewFrame" title="完整课程档案预览" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe></div>
+        <section class="preview-panel" aria-label="Delivery preview">
+          <div class="preview-bar"><div class="tabs" role="tablist" aria-label="Delivery checks"><button id="previewTab" role="tab" aria-selected="true" aria-controls="previewArea">Preview</button><button id="issuesTab" role="tab" aria-selected="false" aria-controls="issuesArea">Review <span id="issueCount">0</span></button></div><span class="preview-status" id="previewStatus" role="status">Generating preview</span></div>
+          <div class="preview-area" id="previewArea" role="tabpanel" aria-labelledby="previewTab"><iframe id="previewFrame" title="Complete course archive preview" sandbox="allow-same-origin allow-popups allow-popups-to-escape-sandbox"></iframe></div>
           <div id="issuesArea" class="issues-area" role="tabpanel" aria-labelledby="issuesTab" hidden></div>
-          <div class="preview-footer">PDF 保存正文和附件索引；原附件随档案单独交付。<a id="saveArchiveLink" hidden download="CoursePack-archive.zip">ZIP 已生成；下载未开始时，点击保存</a><span id="draftStatus">本标签页暂存整理进度，重新导入相同课程包可恢复。</span></div>
+          <div class="preview-footer">PDF includes the body and attachment index; original files are delivered separately. <a id="saveArchiveLink" hidden download="CoursePack-archive.zip">ZIP ready. If the download did not start, save it here.</a><span id="draftStatus">This tab keeps your arrangement. Reimport the same package to restore it.</span></div>
         </section>
       </div>
     </section>
   </main>
   <input type="file" id="fileInput" accept=".imscc,.zip" hidden>
   <div id="message" class="message" role="status" hidden></div>
-  <dialog id="helpDialog"><div class="dialog-header"><h2>从 Canvas 导入课程</h2><button id="closeHelp" class="quiet" aria-label="关闭导入说明">关闭</button></div><ol><li>打开课程，进入「设置」。</li><li>选择「导出课程内容」，导出类型选「课程」。</li><li>下载完成后，把 .imscc 或 .zip 文件导入这里。</li></ol><p>首版读取带有 imsmanifest.xml 的课程包。Modules 中生成的离线 HTML 包暂不支持。</p><p>测验、外部工具和不支持的内容会明确标记。<span id="sessionNote">上传文件留在本机内存，清除课程或停止服务后释放；最多保留三个课程会话，两小时后过期。</span></p><p>本标签页会暂存课程和模块名称、顺序及勾选状态，用于重新导入相同课程包后恢复；不暂存课程文件或正文。清除课程也会清除整理进度。</p><p>示例课程为合成材料，包含故意缺失的图片和外部链接，便于试用检查流程。</p></dialog>
+  <dialog id="helpDialog" aria-labelledby="helpTitle"><div class="dialog-header"><h2 id="helpTitle">Import from Canvas</h2><button id="closeHelp" class="quiet" aria-label="Close import guide">Close</button></div><ol><li>Open your course and go to Settings.</li><li>Choose Export Course Content, then the Course export type.</li><li>Download the .imscc or .zip and import it here.</li></ol><p>CoursePack reads packages with imsmanifest.xml. Offline HTML packages generated from Modules are not supported.</p><p>Quizzes, external tools, and unsupported content are marked explicitly. <span id="sessionNote">Uploads stay in local server memory until cleared, expired, evicted, or the service stops. Up to three course sessions are retained for two hours.</span></p><p>This tab stores course and module names, order, and selections for same-package reimport. It does not store course files or body content. Clear course also removes the arrangement draft.</p><p>The demo is synthetic and includes an intentionally missing image and an external link to demonstrate review.</p></dialog>
 </body>
 </html>

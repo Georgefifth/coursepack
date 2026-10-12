@@ -3,10 +3,10 @@ let runtime;
 let initialization;
 async function initialize() {
   if (!initialization) initialization = (async () => {
-    self.postMessage({ stage: '首次加载处理环境（约 13 MB），课程文件不会上传…' });
+    self.postMessage({ stage: 'Loading processing tools (about 13 MB). Course files are not uploaded…' });
     runtime = await loadPyodide({ indexURL: new URL('./runtime/', import.meta.url).href });
     const response = await fetch(new URL('./engine.py', import.meta.url));
-    if (!response.ok) throw new Error('处理程序未能下载，请检查网络后重试。');
+    if (!response.ok) throw new Error('The processing engine could not be downloaded. Check your connection and try again.');
     runtime.FS.writeFile('/home/pyodide/engine.py', await response.text());
     await runtime.runPythonAsync(`
 import engine, json, secrets
@@ -29,14 +29,14 @@ def browser_call(operation):
             browser_token = None
         return '{}'
     if browser_course is None or payload.get('token') != browser_token:
-        raise engine.CourseError('课程已清除，请重新导入。')
+        raise engine.CourseError('The course was cleared. Import it again.')
     if operation == '/api/render':
         result = browser_course.render(payload, exporting=True)
         assets = [(path, browser_course.files[path]) for path in sorted(result.pop('used'))]
         return (json.dumps(result, ensure_ascii=False), assets)
     if operation == '/api/export':
         return browser_course.export(payload)
-    raise engine.CourseError('未知操作。')
+    raise engine.CourseError('Unknown operation.')
 `);
   })().catch(error => { initialization = null; throw error; });
   await initialization;
@@ -68,7 +68,7 @@ self.onmessage = event => {
     } catch (error) {
       const text = String(error.message || error);
       const known = text.match(/CourseError: ([^\n]+)/);
-      self.postMessage({ id, error: known ? known[1] : '浏览器处理未完成。请重试；仍失败时可下载源码使用本机版。', detail: known ? undefined : text.slice(-800) });
+      self.postMessage({ id, error: known ? known[1] : 'Browser processing failed. Try again, or download the source and use the local version.', detail: known ? undefined : text.slice(-800) });
     } finally { self.input_bytes = null; self.input_payload = null; if (runtime) { runtime.globals.set('input_bytes', null); runtime.globals.set('input_payload', null); } }
   });
 };

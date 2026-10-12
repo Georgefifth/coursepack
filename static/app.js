@@ -22,14 +22,14 @@ let collapsed = new Set();
 let draftWarning = false;
 const DRAFT_KEY = 'coursepack-arrangement-v1';
 if (CourseTransport.browserMode) {
-  $('privacyNote').textContent = '支持带课程清单的 Canvas .imscc / .zip，最大 50 MB。文件在浏览器内处理，不上传，不连接学校账号。';
-  $('engineStatus').textContent = '首次使用需下载约 13 MB 处理环境；之后由浏览器缓存。';
-  $('sessionNote').textContent = '文件留在本标签页处理内存；清除课程或关闭标签页后释放。网站没有账户、云端数据库或学校连接。';
+  $('privacyNote').textContent = 'Canvas .imscc / .zip with a course manifest, up to 50 MB. Files are processed in your browser, not uploaded. No school login.';
+  $('engineStatus').textContent = 'First use downloads about 13 MB of processing tools. Your browser may cache them afterward.';
+  $('sessionNote').textContent = 'Files stay in this tab\'s processing memory. Clear the course or close the tab to release them. No accounts, cloud database, or school connection.';
 }
 function saveDraft() {
   if (!course) return;
   try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ fingerprint: course.fingerprint, title: $('courseTitle').value, groups, selected: [...selected], collapsed: [...collapsed] })); }
-  catch (_) { $('draftStatus').textContent = '浏览器未允许暂存进度；关闭或刷新前请下载档案。'; if (!draftWarning) { message('整理仍可继续，但此浏览器未允许暂存进度。'); draftWarning = true; } }
+  catch (_) { $('draftStatus').textContent = 'Draft storage is unavailable. Download your archive before refreshing or closing.'; if (!draftWarning) { message('You can keep arranging, but this browser does not allow draft storage.'); draftWarning = true; } }
 }
 function restoreDraft() {
   try {
@@ -69,12 +69,12 @@ function snapshot() {
 function setImportBusy(value) {
   importBusy = value;
   ['importButton', 'demoButton', 'replaceButton', 'fileInput', 'clearButton'].forEach(id => { $(id).disabled = value; });
-  $('importButton').textContent = value ? '正在读取…' : '导入课程包';
+  $('importButton').textContent = value ? 'Reading…' : 'Import course package';
 }
 async function importCourse(file) {
   if (importBusy) return;
-  if (file && file.size > 50 * 1024 * 1024) return message('文件超过 50 MB。请导出更小的课程包。', true);
-  if (file && !/\.(imscc|zip)$/i.test(file.name)) return message('请选择 Canvas 导出的 .imscc 或 .zip 文件。', true);
+  if (file && file.size > 50 * 1024 * 1024) return message('This file exceeds 50 MB. Export a smaller course package.', true);
+  if (file && !/\.(imscc|zip)$/i.test(file.name)) return message('Choose a Canvas .imscc or .zip course export.', true);
   setImportBusy(true);
   const importStarted = performance.now();
   try {
@@ -95,7 +95,7 @@ async function importCourse(file) {
     $('materialSearch').value = ''; $('issuesOnly').checked = false;
     $('courseTitle').value = next.title;
     const restored = restoreDraft();
-    $('sourceLabel').textContent = file ? file.name : '示例课程 · 合成材料，含故意设置的缺项';
+    $('sourceLabel').textContent = file ? file.name : 'Demo course · Synthetic materials with intentional missing references';
     $('welcome').hidden = true;
     $('workbench').hidden = false;
     showTab('preview');
@@ -103,7 +103,7 @@ async function importCourse(file) {
     await refreshPreview();
     $('sourceLabel').dataset.importMs = (performance.now() - importStarted).toFixed(1);
     saveDraft();
-    message(restored ? '已恢复本标签页的名称、顺序和材料选择。' : file ? '课程已导入。选择内容后，预览和导出会使用同一份目录。' : '示例已导入。可试试取消材料、调整顺序和查看待确认事项。');
+    message(restored ? 'Restored this tab\'s names, order, and material selections.' : file ? 'Course imported. Selection, preview, and export use the same delivery outline.' : 'Demo imported. Try selecting materials, changing the order, and reviewing issues.');
   } catch (error) { message(error.message, true); }
   finally { setImportBusy(false); $('fileInput').value = ''; }
 }
@@ -147,26 +147,38 @@ function drawOutline() {
     heading.dataset.drag = 'module';
     heading.dataset.id = g.id;
     const check = el('input'); check.type = 'checkbox';
-    check.setAttribute('aria-label', '选择模块：' + g.title);
+    check.setAttribute('aria-label', 'Select module: ' + g.title);
     check.dataset.focus = 'module-' + g.id;
     check.checked = matching.length > 0 && matching.every(id => selected.has(id));
     check.indeterminate = !check.checked && matching.some(id => selected.has(id));
     check.addEventListener('change', () => { matching.forEach(id => check.checked ? selected.add(id) : selected.delete(id)); changed(); });
     const collapse = el('button', 'collapse-button', collapsed.has(g.id) && !filtering ? '›' : '⌄');
-    collapse.setAttribute('aria-label', '展开或收起模块：' + g.title);
+    collapse.setAttribute('aria-label', 'Expand or collapse module: ' + g.title);
     collapse.setAttribute('aria-expanded', !collapsed.has(g.id) || filtering);
     collapse.dataset.focus = 'collapse-' + g.id;
     collapse.addEventListener('click', () => { collapsed.has(g.id) ? collapsed.delete(g.id) : collapsed.add(g.id); saveDraft(); drawOutline(); });
     const title = el('input', 'module-title'); title.value = g.title; title.maxLength = 200;
-    title.setAttribute('aria-label', '模块名称：' + g.title); title.dataset.focus = 'title-' + g.id;
-    title.title = '直接修改交付模块名称，回车保存';
+    title.setAttribute('aria-label', 'Module name: ' + g.title); title.dataset.focus = 'title-' + g.id;
+    title.title = 'Edit the delivery module name; press Enter to save';
     title.addEventListener('input', () => { g.title = title.value.slice(0, 200); saveDraft(); schedulePreview(); });
-    title.addEventListener('change', () => { g.title = title.value.trim().slice(0, 200) || '课程模块'; title.value = g.title; saveDraft(); schedulePreview(); });
+    title.addEventListener('change', () => {
+      const entered = title.value.trim().slice(0, 200);
+      g.title = entered || originalGroups.find(group => group.id === g.id)?.title || 'Course module';
+      title.value = g.title;
+      title.setAttribute('aria-label', 'Module name: ' + g.title);
+      title.title = g.title + ' — Edit name; press Enter to save';
+      check.setAttribute('aria-label', 'Select module: ' + g.title);
+      collapse.setAttribute('aria-label', 'Expand or collapse module: ' + g.title);
+      up.setAttribute('aria-label', 'Move module up: ' + g.title); up.title = 'Move module up: ' + g.title;
+      down.setAttribute('aria-label', 'Move module down: ' + g.title); down.title = 'Move module down: ' + g.title;
+      saveDraft(); schedulePreview();
+      if (!entered) message('Module name cannot be empty; restored the original name.');
+    });
     title.addEventListener('keydown', event => { if (event.key === 'Enter') title.blur(); });
     title.draggable = false;
     const actions = el('div', 'move-actions');
-    const up = moveButton('上移模块：' + g.title, -1, () => moveModule(gi, -1), gi === 0); up.dataset.focus = 'mg-up-' + g.id;
-    const down = moveButton('下移模块：' + g.title, 1, () => moveModule(gi, 1), gi === groups.length - 1); down.dataset.focus = 'mg-down-' + g.id;
+    const up = moveButton('Move module up: ' + g.title, -1, () => moveModule(gi, -1), gi === 0); up.dataset.focus = 'mg-up-' + g.id;
+    const down = moveButton('Move module down: ' + g.title, 1, () => moveModule(gi, 1), gi === groups.length - 1); down.dataset.focus = 'mg-down-' + g.id;
     actions.append(up, down); heading.append(collapse, check, title, actions); block.append(heading);
     g.items.forEach((id, ii) => {
       if (!matches(id) || (collapsed.has(g.id) && !filtering)) return;
@@ -174,25 +186,25 @@ function drawOutline() {
       const row = el('div', 'item-row' + (!selected.has(id) ? ' is-excluded' : '') + (activeItem === id ? ' selected-preview' : ''));
       row.draggable = true; row.dataset.drag = 'item'; row.dataset.id = id; row.dataset.group = g.id;
       const checkbox = el('input'); checkbox.type = 'checkbox'; checkbox.checked = selected.has(id);
-      checkbox.setAttribute('aria-label', '选入交付：' + item.title); checkbox.dataset.focus = 'item-' + id;
+      checkbox.setAttribute('aria-label', 'Include: ' + item.title); checkbox.dataset.focus = 'item-' + id;
       checkbox.addEventListener('change', () => { checkbox.checked ? selected.add(id) : selected.delete(id); changed(); });
-      const open = el('button', 'item-open'); open.setAttribute('aria-label', '预览：' + item.title); open.dataset.focus = 'open-' + id;
+      const open = el('button', 'item-open'); open.setAttribute('aria-label', 'Preview: ' + item.title); open.dataset.focus = 'open-' + id;
       open.append(el('strong', '', item.title));
       const meta = el('span', 'item-meta', item.type);
-      if (problems.has(id)) { meta.append(el('i', 'item-issue')); meta.append(document.createTextNode('需确认')); }
+      if (problems.has(id)) { meta.append(el('i', 'item-issue')); meta.append(document.createTextNode('Needs review')); }
       open.append(meta); open.addEventListener('click', () => focusItem(id));
       const moves = el('div', 'move-actions');
-      const itemUp = moveButton('上移材料：' + item.title, -1, () => moveItem(g, ii, -1), ii === 0); itemUp.dataset.focus = 'up-' + id;
-      const itemDown = moveButton('下移材料：' + item.title, 1, () => moveItem(g, ii, 1), ii === g.items.length - 1); itemDown.dataset.focus = 'down-' + id;
+      const itemUp = moveButton('Move item up: ' + item.title, -1, () => moveItem(g, ii, -1), ii === 0); itemUp.dataset.focus = 'up-' + id;
+      const itemDown = moveButton('Move item down: ' + item.title, 1, () => moveItem(g, ii, 1), ii === g.items.length - 1); itemDown.dataset.focus = 'down-' + id;
       moves.append(itemUp, itemDown); row.append(checkbox, open, moves); block.append(row);
     });
     root.append(block);
   });
-  if (!visible) root.append(el('p', 'no-matches', '没有匹配的材料。可修改关键词或取消筛选。'));
-  $('filterCount').textContent = filtering ? visible + ' 项匹配（不改变交付选择）' : '';
+  if (!visible) root.append(el('p', 'no-matches', 'No matching materials. Change the search or clear the filters.'));
+  $('filterCount').textContent = filtering ? visible + ' matches (filtering does not change selection)' : '';
   $('selectVisibleButton').hidden = !filtering || !visible;
-  $('selectionCount').textContent = '已选 ' + selected.size + ' / ' + course.items.length + ' 项材料';
-  $('selectAllButton').textContent = selected.size === course.items.length ? '全不选' : '全选';
+  $('selectionCount').textContent = 'Selected ' + selected.size + ' / ' + course.items.length + ' items';
+  $('selectAllButton').textContent = selected.size === course.items.length ? 'Clear selection' : 'Select all';
   $('exportButton').disabled = selected.size === 0 || exportBusy;
   $('printButton').disabled = selected.size === 0;
   root.parentElement.scrollTop = scroll;
@@ -202,7 +214,7 @@ function schedulePreview() {
   $('saveArchiveLink').hidden = true;
   saveDraft();
   renderRevision++;
-  $('previewStatus').textContent = '正在更新…';
+  $('previewStatus').textContent = 'Updating…';
   clearTimeout(renderTimer);
   renderTimer = setTimeout(refreshPreview, 250);
 }
@@ -211,10 +223,10 @@ async function refreshPreview() {
   clearTimeout(renderTimer);
   const payload = snapshot();
   const key = JSON.stringify(payload);
-  if (key === previewKey && currentPreview) { $('previewStatus').textContent = '与交付目录同步'; return currentPreview; }
+  if (key === previewKey && currentPreview) { $('previewStatus').textContent = 'Preview is up to date'; return currentPreview; }
   const revision = ++renderRevision;
   const token = course.token;
-  $('previewStatus').textContent = '正在生成预览…';
+  $('previewStatus').textContent = 'Generating preview…';
   try {
     const started = performance.now();
     const response = await request('/api/render', payload);
@@ -230,23 +242,23 @@ async function refreshPreview() {
     $('issueCount').textContent = notices.length;
     if (CourseTransport.browserMode) { previewHTML = result.html; $('previewFrame').srcdoc = result.html; }
     else $('previewFrame').src = result.url;
-    $('previewStatus').textContent = '与交付目录同步';
+    $('previewStatus').textContent = 'Preview is up to date';
     $('previewStatus').dataset.renderMs = (performance.now() - started).toFixed(1);
     if (issuesChanged) drawOutline();
     drawIssues();
     return result.url;
-  } catch (error) { if (revision === renderRevision) { $('previewStatus').textContent = '预览未更新'; message(error.message, true); } return null; }
+  } catch (error) { if (revision === renderRevision) { $('previewStatus').textContent = 'Preview could not be updated'; message(error.message, true); } return null; }
 }
 function drawIssues() {
   const area = $('issuesArea'); area.replaceChildren();
-  area.append(el('h2', '', '交付前需确认'));
-  area.append(el('p', 'issues-intro', '这里只检查选入材料在导出包中的引用。外部资源、缺失文件和不支持的内容需要你确认；文件存在并不代表原课程完整。'));
-  if (!notices.length) area.append(el('p', 'no-issues', '当前选入的材料没有发现引用问题。交付前仍请检查内容是否符合你的要求。'));
+  area.append(el('h2', '', 'Review before delivery'));
+  area.append(el('p', 'issues-intro', 'These checks cover references in selected materials only. Review external resources, missing files, and unsupported content. Existing files do not prove the source course is complete.'));
+  if (!notices.length) area.append(el('p', 'no-issues', 'No reference issues found in selected materials. Check the content before delivery.'));
   notices.forEach(n => {
     const row = el('div', 'issue-row');
-    row.append(el('span', 'issue-tag', ({ missing: '文件缺失', external: '需要联网', unsupported: '未转换' })[n.kind] || '需确认'));
+    row.append(el('span', 'issue-tag', ({ missing: 'Missing file', external: 'Internet required', unsupported: 'Not converted' })[n.kind] || 'Needs review'));
     const detail = el('div'); detail.append(el('h3', '', n.title), el('p', '', n.message));
-    const button = el('button', 'text-button', '查看对应材料'); button.addEventListener('click', () => focusItem(n.item));
+    const button = el('button', 'text-button', 'View material'); button.addEventListener('click', () => focusItem(n.item));
     detail.append(button); row.append(detail); area.append(row);
   });
 }
@@ -257,7 +269,7 @@ function showTab(name) {
   $('previewArea').hidden = !preview; $('issuesArea').hidden = preview;
 }
 function focusItem(id) {
-  if (!selected.has(id)) return message('这项材料未选入交付。勾选后即可在预览中查看。');
+  if (!selected.has(id)) return message('This material is not included. Select it to view it in the delivery preview.');
   activeItem = id; showTab('preview'); drawOutline();
   const target = $('previewFrame').contentDocument && $('previewFrame').contentDocument.getElementById(id);
   if (target) target.scrollIntoView({ block: 'start', behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' });
@@ -266,7 +278,7 @@ $('previewFrame').addEventListener('load', () => {
   if (scrollAnchor) {
     const view = $('previewFrame').contentWindow;
     const target = scrollAnchor.id && $('previewFrame').contentDocument.getElementById(scrollAnchor.id);
-    view.scrollTo(0, target ? view.scrollY + target.getBoundingClientRect().top - scrollAnchor.offset : scrollAnchor.y || 0);
+    view.scrollTo({ top: target ? view.scrollY + target.getBoundingClientRect().top - scrollAnchor.offset : scrollAnchor.y || 0, behavior: 'instant' });
     scrollAnchor = null;
   }
   CourseTransport.revokePrevious();
@@ -279,8 +291,15 @@ $('replaceButton').addEventListener('click', () => $('fileInput').click());
 $('demoButton').addEventListener('click', () => importCourse(null));
 $('fileInput').addEventListener('change', () => { if ($('fileInput').files[0]) importCourse($('fileInput').files[0]); });
 $('courseTitle').addEventListener('input', schedulePreview);
+$('courseTitle').addEventListener('change', () => {
+  if (!course) return;
+  const entered = $('courseTitle').value.trim();
+  $('courseTitle').value = entered || course.title;
+  schedulePreview();
+  if (!entered) message('Archive name cannot be empty; restored the course name.');
+});
 $('selectAllButton').addEventListener('click', () => { selected = selected.size === course.items.length ? new Set() : new Set(course.items.map(i => i.id)); changed(); });
-$('resetOrderButton').addEventListener('click', () => { groups = structuredClone(originalGroups); changed(); message('已恢复原始目录和模块名称，保留当前材料选择。'); });
+$('resetOrderButton').addEventListener('click', () => { groups = structuredClone(originalGroups); changed(); message('Restored the original outline and module names. Your material selection was kept.'); });
 $('clearButton').addEventListener('click', async () => {
   const old = course;
   clearTimeout(renderTimer); renderRevision++; course = null;
@@ -288,7 +307,7 @@ $('clearButton').addEventListener('click', async () => {
   if (lastDownloadURL) URL.revokeObjectURL(lastDownloadURL); lastDownloadURL = null; $('saveArchiveLink').hidden = true;
   try { sessionStorage.removeItem(DRAFT_KEY); } catch (_) {} $('welcome').hidden = false; $('workbench').hidden = true;
   groups = []; selected.clear(); notices = []; activeItem = null;
-  if (old) { try { await request('/api/reset', { token: old.token }); if (CourseTransport.browserMode) CourseTransport.clear(); message('课程和本标签页的整理进度已清除。'); } catch (error) { message(error.message, true); } }
+  if (old) { try { await request('/api/reset', { token: old.token }); if (CourseTransport.browserMode) CourseTransport.clear(); message('Course files and this tab\'s arrangement draft were cleared.'); } catch (error) { message(error.message, true); } }
 });
 $('previewTab').addEventListener('click', () => showTab('preview'));
 $('issuesTab').addEventListener('click', () => showTab('issues'));
@@ -300,33 +319,33 @@ $('closeHelp').addEventListener('click', () => $('helpDialog').close());
 $('exportButton').addEventListener('click', async () => {
   if (exportBusy) return;
   exportBusy = true;
-  const button = $('exportButton'); button.disabled = true; button.textContent = '正在打包…';
+  const button = $('exportButton'); button.disabled = true; button.textContent = 'Packaging…';
   const exportPayload = snapshot();
   try {
-    if (!await refreshPreview()) throw new Error('请先等待预览更新成功再导出。');
+    if (!await refreshPreview()) throw new Error('Wait for the preview to update successfully before exporting.');
     const anchor = el('a');
     let downloadURL;
     if (CourseTransport.browserMode) { const response = await request('/api/export', exportPayload); downloadURL = URL.createObjectURL(await response.blob()); anchor.href = downloadURL; }
     else anchor.href = archiveURL;
-    if (!course || JSON.stringify(snapshot()) !== JSON.stringify(exportPayload)) { if (downloadURL) URL.revokeObjectURL(downloadURL); throw new Error('打包期间目录已改变。请等待预览同步后重新下载。'); }
+    if (!course || JSON.stringify(snapshot()) !== JSON.stringify(exportPayload)) { if (downloadURL) URL.revokeObjectURL(downloadURL); throw new Error('The outline changed during packaging. Wait for the preview to update, then download again.'); }
     anchor.download = 'CoursePack-archive.zip';
     document.body.append(anchor); anchor.click(); anchor.remove();
     if (downloadURL) { if (lastDownloadURL) URL.revokeObjectURL(lastDownloadURL); lastDownloadURL = downloadURL; $('saveArchiveLink').href = downloadURL; $('saveArchiveLink').hidden = false; }
-    message('已发起档案下载。解压后打开 index.html；原附件保留在 assets 文件夹。');
+    message('Archive download started. Extract it and open index.html. Original attachments are in the assets folder.');
   } catch (error) { message(error.message, true); }
-  finally { exportBusy = false; button.disabled = !course || selected.size === 0; button.textContent = '下载档案'; }
+  finally { exportBusy = false; button.disabled = !course || selected.size === 0; button.textContent = 'Download archive'; }
 });
 $('printButton').addEventListener('click', async () => {
   const popup = window.open('', '_blank');
-  if (!popup) return message('浏览器拦截了打印窗口。请允许此页面打开弹窗后重试。', true);
+  if (!popup) return message('Your browser blocked the print window. Allow popups for this page and try again.', true);
   const button = $('printButton'); button.disabled = true;
   clearTimeout(renderTimer);
   const url = await refreshPreview();
   if (url) {
     popup.onload = () => { popup.focus(); popup.print(); };
-    if (CourseTransport.browserMode) { popup.document.open(); popup.document.write(previewHTML); popup.document.close(); }
+    if (CourseTransport.browserMode) { popup.document.open(); popup.document.write(previewHTML.replaceAll('href="about:srcdoc#', 'href="about:blank#')); popup.document.close(); }
     else popup.location.href = url;
-    message('在打印窗口选择「另存为 PDF」。正文包含附件索引，原附件请使用「下载档案」保存。');
+    message('Choose Save as PDF in the print dialog. The body lists attachments; use Download archive to save their original files.');
   } else popup.close();
   button.disabled = selected.size === 0;
 });

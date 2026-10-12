@@ -14,18 +14,18 @@ window.CourseTransport = (() => {
       if (data.stage) { document.getElementById('engineStatus').textContent = data.stage; return; }
       const request = pending.get(data.id); if (!request) return;
       pending.delete(data.id);
-      document.getElementById('engineStatus').textContent = '在此浏览器处理 · 文件不上传';
+      document.getElementById('engineStatus').textContent = 'Processed in this browser · Files are not uploaded';
       if (data.error) { if (data.detail) console.error(data.detail); request.reject(new Error(data.error)); } else request.resolve(data);
     };
     worker.onerror = () => {
-      for (const request of pending.values()) request.reject(new Error('处理环境加载失败，请检查网络后重试。'));
+      for (const request of pending.values()) request.reject(new Error('Processing tools failed to load. Check your connection and try again.'));
       pending.clear(); worker.terminate(); worker = null;
     };
   }
   async function request(path, body, raw = false) {
     if (!browserMode) {
       const response = await fetch(path, { method: 'POST', headers: { 'Content-Type': raw ? 'application/zip' : 'application/json' }, body: raw ? body : JSON.stringify(body || {}) });
-      if (!response.ok) { let error = {}; try { error = await response.json(); } catch (_) {} throw new Error(error.error || '处理未完成，请重试。'); }
+      if (!response.ok) { let error = {}; try { error = await response.json(); } catch (_) {} throw new Error(error.error || 'Processing failed. Try again.'); }
       return response;
     }
     start(); const id = ++sequence;
@@ -33,7 +33,7 @@ window.CourseTransport = (() => {
     const result = await new Promise((resolve, reject) => { pending.set(id, { resolve, reject }); worker.postMessage({ id, operation: path, payload: raw ? {} : body, bytes }, bytes ? [bytes] : []); });
     if (path === '/api/export') return { blob: async () => new Blob([result.bytes], { type: 'application/zip' }) };
     if (result.assets) {
-      let html = result.data.html.replace("img-src 'self'", "img-src 'self' blob:").replaceAll('href="body.html#', 'href="#');
+      let html = result.data.html.replace("img-src 'self'", "img-src 'self' blob:").replaceAll('href="body.html#', 'href="#').replaceAll('href="#', 'href="about:srcdoc#');
       const nextURLs = [];
       for (const asset of result.assets) {
         const extension = asset.path.split('.').pop().toLowerCase();
@@ -50,6 +50,6 @@ window.CourseTransport = (() => {
     }
     return { json: async () => result.data };
   }
-  function clear() { if (worker) worker.terminate(); worker = null; for (const request of pending.values()) request.reject(new Error('课程已清除。')); pending.clear(); urls.forEach(URL.revokeObjectURL); urls.clear(); previousPreviewURLs = []; window.CourseTransport.previewAssets = []; }
+  function clear() { if (worker) worker.terminate(); worker = null; for (const request of pending.values()) request.reject(new Error('Course cleared.')); pending.clear(); urls.forEach(URL.revokeObjectURL); urls.clear(); previousPreviewURLs = []; window.CourseTransport.previewAssets = []; }
   return { request, browserMode, clear, revokePrevious };
 })();

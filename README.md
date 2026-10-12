@@ -40,3 +40,10 @@ python3 -m http.server 8766 --bind 127.0.0.1 --directory site
 `build_site.py` obtains the runtime from the official Pyodide CDN during build only, verifies pinned sizes/SHA-256, and bundles it on the same origin. See [third-party notices](THIRD_PARTY.md). No Python packages are fetched at runtime. The GitHub Actions workflow runs acceptance tests before deploying Pages.
 
 See [competitive review](COMPETITIVE_REVIEW.md), [improvement priorities and acceptance](IMPROVEMENT_PLAN.md), [validation](VALIDATION.md), [product scope](PRODUCT.md) and [architecture constraints](AGENTS.md). Competitive advantages are hypotheses until tested with real instructors.
+
+
+## Firefox acceptance testing
+
+The interface, generated archive copy, error feedback and authored demo are English. Imported source content keeps its original language.
+
+See `qa/TEST_PLAN.md` for real headless Firefox business scenarios. Install the pinned development-only Playwright dependency with `npm ci`, then `npx playwright install firefox`. Generate the synthetic inputs with `PYTHONPATH=. python3 qa/make_fixtures.py`. Run `npm run qa:public` against the deployed site, or start the native server and run `npm run qa:local`. Downloads, extracted archives, screenshots and JSON results stay under ignored `qa-output/`. These tests save actual ZIPs and read their extracted HTML in Firefox; they do not accept a download link as proof of a completed download.

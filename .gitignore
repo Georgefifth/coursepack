@@ -4,3 +4,5 @@ runtime_cache/
 site/
 validation/
 .env*
+qa-output/
+node_modules/

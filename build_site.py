@@ -32,7 +32,7 @@ def build():
     for source in (ROOT / 'licenses').iterdir():
         shutil.copyfile(source, runtime / source.name)
     index = target / 'index.html'
-    index.write_text(index.read_text().replace('<html lang="zh-CN">', '<html lang="zh-CN" data-engine="browser">'))
+    index.write_text(index.read_text().replace('<html lang="en">', '<html lang="en" data-engine="browser">'))
     (target / '.nojekyll').touch()
     print('Built site; pinned runtime bytes:', sum(p['size'] for p in lock['files'].values()))
 

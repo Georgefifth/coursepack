@@ -23,3 +23,7 @@ Use standard-library unittest for realistic import/export round trips, resource 
 
 ## Quality bar
 The main workflow must work end to end in the deployed static browser version and in the local Python version. Report the browser runtime cold-load cost. Demo content must exercise the real importer. Errors must identify the next useful action. Maintain PRODUCT.md, README.md and tests when behavior changes.
+
+
+## English and Firefox acceptance
+The user requested an English product and actual headless Firefox acceptance on 2026-10-12. Keep interface copy, feedback, generated report text and authored demo English; preserve imported source language. Use the maintained `qa/firefox.cjs` scenarios, actual clicks/typing/file choices, disk downloads and portable archive reading. Do not delete tests or weaken business assertions to pass. Keep failed rounds under ignored `qa-output/`. Verify deployed bytes and the live website after publishing. Native PDF print/save dialog automation remains separate from print-document verification.
