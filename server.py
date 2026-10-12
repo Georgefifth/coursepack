@@ -312,7 +312,7 @@ class Course:
                     href = item['href']
                     if href.startswith(('https://', 'http://')):
                         notice(iid, 'external', '此材料仍需联网访问：' + href[:250])
-                        content = '<p class="callout">在线材料</p><p><a href="' + esc(href) + '">' + esc(href) + '</a></p>'
+                        content = '<p class="callout">在线材料</p><p><a href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' + esc(href) + '</a></p>'
                         status = 'external'
                     else:
                         notice(iid, 'missing', '导出包没有包含此条目的文件。请回到原课程检查并补存。')
@@ -326,7 +326,7 @@ class Course:
                 elif suffix in {'.txt', '.csv'}:
                     content = '<pre>' + esc(self.files[path].decode('utf-8-sig', errors='replace')) + '</pre>'
                     url = asset(path)
-                    content += '<p class="attachment"><a href="' + esc(url) + '">下载原文件</a></p>'
+                    content += '<p class="attachment"><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">下载原文件</a></p>'
                 elif suffix == '.xml' and any(x in kind for x in ('weblink', 'imswl', 'basiclti', 'external')):
                     try:
                         doc = xml(self.files[path])
@@ -336,14 +336,14 @@ class Course:
                                  if tag(n) in {'url', 'launch_url'}), '')
                     if href.startswith(('https://', 'http://')):
                         notice(iid, 'external', '此材料需要外部服务：' + href[:250])
-                        content = '<p class="callout">外部服务材料</p><p><a href="' + esc(href) + '">' + esc(href) + '</a></p>'
+                        content = '<p class="callout">外部服务材料</p><p><a href="' + esc(href) + '" target="_blank" rel="noopener noreferrer">' + esc(href) + '</a></p>'
                     else:
                         notice(iid, 'unsupported', '外部工具描述未能解析。原 XML 作为附件保留。')
-                        content = '<p class="attachment"><a href="' + esc(asset(path)) + '">下载原描述文件</a></p>'
+                        content = '<p class="attachment"><a href="' + esc(asset(path)) + '" target="_blank" rel="noopener noreferrer">下载原描述文件</a></p>'
                     status = 'external'
                 elif suffix in SAFE_EXT:
                     url = asset(path)
-                    content = '<div class="attachment"><strong>' + esc(PurePosixPath(path).name) + '</strong><p>原文件单独交付，未并入可打印正文。</p><a href="' + esc(url) + '">打开 / 下载附件</a></div>'
+                    content = '<div class="attachment"><strong>' + esc(PurePosixPath(path).name) + '</strong><p>原文件单独交付，未并入可打印正文。</p><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">打开 / 下载附件</a></div>'
                     status = 'attachment'
                     if suffix == '.xml':
                         notice(iid, 'unsupported', '测验或结构化材料作为原 XML 附件保留，首版不重建其内容。')
@@ -435,7 +435,7 @@ class CleanHTML(HTMLParser):
             url = self.resolver(attrs['src']) if attrs.get('src') else None
             self.on_unsupported('视频或音频未并入可打印正文；可用的原文件作为附件保留。')
             if url:
-                self.out.append('<p class="attachment"><a href="' + esc(url) + '">打开媒体原文件</a>（未并入可打印正文）</p>')
+                self.out.append('<p class="attachment"><a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">打开媒体原文件</a>（未并入可打印正文）</p>')
             return
         if name == 'math':
             self.on_unsupported('数学标记已简化为文本，请核对公式或补充 PDF 附件。')
@@ -447,7 +447,7 @@ class CleanHTML(HTMLParser):
                 attrs = dict(attrs)
                 url = self.resolver(attrs['src']) if attrs.get('src') else None
                 self.out.append('<p class="callout">嵌入内容未纳入正文。' +
-                                ('<a href="' + esc(url) + '" rel="noopener noreferrer">打开对应资源</a>' if url else '请检查外部资源。') + '</p>')
+                                ('<a href="' + esc(url) + '" target="_blank" rel="noopener noreferrer">打开对应资源</a>' if url else '请检查外部资源。') + '</p>')
             if name not in {'embed'}:
                 self.skipping.append(name)
             return
@@ -462,6 +462,8 @@ class CleanHTML(HTMLParser):
                 extra += ' ' + ('href' if name == 'a' else 'src') + '="' + esc(url) + '"'
                 if name == 'a':
                     extra += ' rel="noopener noreferrer"'
+                    if not url.startswith(('#', 'body.html#')):
+                        extra += ' target="_blank"'
             elif name == 'img':
                 self.out.append('<span class="callout">[图片未包含：' + esc(attrs.get('alt', '请补存')) + ']</span>')
                 return

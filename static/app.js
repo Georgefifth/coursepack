@@ -68,7 +68,7 @@ function snapshot() {
 }
 function setImportBusy(value) {
   importBusy = value;
-  ['importButton', 'demoButton', 'replaceButton', 'fileInput'].forEach(id => { $(id).disabled = value; });
+  ['importButton', 'demoButton', 'replaceButton', 'fileInput', 'clearButton'].forEach(id => { $(id).disabled = value; });
   $('importButton').textContent = value ? '正在读取…' : '导入课程包';
 }
 async function importCourse(file) {

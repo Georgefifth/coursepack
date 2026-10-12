@@ -123,6 +123,16 @@ class CourseAcceptanceTests(unittest.TestCase):
         self.assertIn('图片未包含', result['html'])
         self.assertIn('href="https://example.com"', result['html'])
 
+    def test_external_and_attachment_links_preserve_reader(self):
+        page = '<a href="https://example.com">Online</a><a href="../web_resources/手册%20%281%29.pdf">PDF</a><a href="exercise.html">Next</a>'
+        result = server.Course(fixture(page)).render({}, exporting=True)['html']
+        self.assertIn('href="https://example.com" rel="noopener noreferrer" target="_blank"', result)
+        self.assertIn('href="body.html#i2" rel="noopener noreferrer">Next', result)
+        self.assertIn('target="_blank" rel="noopener noreferrer">打开 / 下载附件', result)
+        # Generated XML weblinks must follow the same policy as imported HTML links.
+        demo = server.Course(server.demo_bytes()).render({})['html']
+        self.assertIn('href="https://www.imsglobal.org/" target="_blank" rel="noopener noreferrer"', demo)
+
     def test_active_html_and_event_handlers_removed(self):
         page = '<script>window.hacked=1</script><style>body{display:none}</style><base href="https://evil.test"><p onclick="alert(1)">Keep this</p><a href="javascript:alert(1)">Bad</a><img src="../web_resources/photo.png" onerror="alert(1)"><form action="https://evil.test"><input name="secret"></form><svg onload="alert(1)"><script>alert(1)</script></svg>'
         output = server.Course(fixture(page)).render({})['html']

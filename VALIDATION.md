@@ -41,3 +41,16 @@ Run `python3 -m unittest discover -s tests -v`, then `python3 server.py`. Open h
 | Module metadata covers only two of three resources | Third resource absent | Third resource in separate group | Regression fixture; not a real school export |
 
 The baseline CPython CPU medians (20 tiny-fixture runs) were import 0.701 ms, render 0.281 ms, export 0.778 ms. They exclude UI/network/runtime startup and cannot establish that browser mode is faster. No competitor latency benchmark, real instructor task time, task success rate, large-file benchmark, mobile memory benchmark, or real-institution format coverage was measured. Those claims remain unvalidated.
+
+## Public deployment verification
+
+- Created the isolated `Georgefifth/coursepack` repository after checking that the existing inherited remote belonged to an unrelated project and that this repository name was unused. Reviewed staged files for credential/contact/home-path patterns; no matches. Build caches, imported fixtures and validation downloads are ignored. Published materials and screenshots are synthetic.
+- GitHub Actions acceptance tests, runtime-integrity build, and Pages deployment succeeded. First attempt failed because Pages had not yet been enabled; after enabling Pages, the rerun succeeded.
+- Opened https://georgefifth.github.io/coursepack/ in the actual browser. Public `app.js`, `transport.js`, `worker.mjs`, and `engine.py` returned HTTP 200 and byte hashes matched reviewed source.
+- Public synthetic demo import measured 5,575.2 ms on first use of that site, including environment initialization and generation request. First preview worker/transport round trip measured 17.0 ms; a changed five-item arrangement measured 50.3 ms. Single observations, not averages or guaranteed response times; iframe paint and human task time are not included in the render figure.
+- Search then uncheck a filtered module removed only the matching material (six → five), preserving the nonmatching material. Module rename/reorder appeared in body. Worker ZIP generation exposed a save link; changing the arrangement immediately hid that old link.
+- Public reload + same-content demo reimport restored five selections, custom archive/module names and module order. Clear + reimport restored the default six selections and source names; deleted draft did not return.
+- Narrow layout tested at requested 390×844 viewport (actual content width 375 px after scrollbar); document content width also 375 px, with no horizontal overflow. Viewport override reset afterward.
+- Before/after reader-anchor positions when removing an earlier page were 19.775 and 19.863 px (0.088 px difference), on one synthetic document. This checks position preservation, not overall usability.
+- Final regression also protects external/attachment links from replacing the reader: they open separately with `noopener noreferrer`; internal material links keep in-document navigation. Total automated acceptance tests: **21**.
+- Browser Blob file saving remains unconfirmed: save/download automation timed out. PDF file saving remains unperformed. Neither is reported as an end-to-end file-save success. Real instructor success rates remain unmeasured.
